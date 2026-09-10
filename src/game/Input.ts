@@ -62,7 +62,7 @@ export class Input {
     root.innerHTML = `
       <div id="stick-zone"><div id="stick"><div id="knob"></div></div></div>
       <div class="btns">
-        <div class="btn" id="b-attack" data-a="attack"><span>斬<small>J</small></span></div>
+        <div class="btn" id="b-attack" data-a="attack"><span>打<small>J</small></span></div>
         <div class="btn" id="b-dodge" data-a="dodge"><span>避<small>K / Space</small></span></div>
         <div class="btn" id="b-parry" data-a="parry"><span>受<small>L</small></span></div>
         <div class="btn" id="b-shoot" data-a="shoot"><span>射<small>I</small></span></div>

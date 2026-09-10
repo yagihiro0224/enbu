@@ -74,11 +74,11 @@ export class UI {
     hud.id = 'hud';
     hud.innerHTML = `
       <div id="vignette"></div><div id="lowhp"></div>
-      <div id="php-wrap"><div class="name">炎舞 ─ ホムラ</div><div class="bar" id="php"><b></b><i></i></div></div>
+      <div id="php-wrap"><div class="name">深川まひろ</div><div class="bar" id="php"><b></b><i></i></div></div>
       <div id="bhp-wrap"><div class="name">妖魔 ─ 紫苑</div><div class="bar" id="bhp"><b></b><i></i><span class="ph" style="left:60%"></span><span class="ph" style="left:30%"></span></div></div>
       <div id="combo"><div class="n">0</div><div class="l">COMBO</div></div>
       <div id="banner"></div>
-      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 斬・K 回避・L 受け流し・I 射撃</div>
+      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃</div>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">

@@ -7,11 +7,15 @@ import type { Ctx } from './Ctx';
 
 type State = 'idle' | 'run' | 'attack' | 'dodge' | 'parry' | 'hit' | 'dead';
 
-interface AttackCfg { total: number; a0: number; a1: number; chain: number; dmg: number; poise: number; lunge: number }
-const ATTACK: Record<1 | 2 | 3, AttackCfg> = {
-  1: { total: 0.44, a0: 0.13, a1: 0.25, chain: 0.27, dmg: 12, poise: 14, lunge: 4.5 },
-  2: { total: 0.44, a0: 0.12, a1: 0.24, chain: 0.26, dmg: 12, poise: 14, lunge: 4.5 },
-  3: { total: 0.72, a0: 0.24, a1: 0.38, chain: 0.72, dmg: 28, poise: 42, lunge: 5.5 },
+type Step = 1 | 2 | 3 | 4 | 5;
+interface AttackCfg { total: number; a0: number; a1: number; chain: number; dmg: number; poise: number; lunge: number; reach: number; kind: 'punch' | 'knife' | 'kick' | 'spin' }
+/** 格闘 5 段: ジャブ、フック（ナイフ）、アッパー、ハイキック、ジャンプ回し蹴り */
+const ATTACK: Record<Step, AttackCfg> = {
+  1: { total: 0.3, a0: 0.09, a1: 0.16, chain: 0.15, dmg: 6, poise: 8, lunge: 4.0, reach: 1.8, kind: 'punch' },
+  2: { total: 0.36, a0: 0.12, a1: 0.2, chain: 0.2, dmg: 9, poise: 12, lunge: 4.0, reach: 1.9, kind: 'knife' },
+  3: { total: 0.4, a0: 0.15, a1: 0.24, chain: 0.24, dmg: 11, poise: 16, lunge: 4.5, reach: 1.8, kind: 'punch' },
+  4: { total: 0.46, a0: 0.17, a1: 0.28, chain: 0.3, dmg: 13, poise: 18, lunge: 4.5, reach: 2.3, kind: 'kick' },
+  5: { total: 0.8, a0: 0.4, a1: 0.52, chain: 0.8, dmg: 26, poise: 44, lunge: 6.0, reach: 2.7, kind: 'spin' },
 };
 const SPEED = 6.5;
 const DODGE_DUR = 0.34;
@@ -28,7 +32,7 @@ export class Player {
   radius = 0.45;
   state: State = 'idle';
   st = 0;
-  attackStep: 1 | 2 | 3 = 1;
+  attackStep: Step = 1;
   private hitDone = false;
   private queued = false;
   invuln = 0;
@@ -131,12 +135,12 @@ export class Player {
   }
 
   /** 動作確認用: 指定段の攻撃を強制的に開始する */
-  debugAttack(step: 1 | 2 | 3, ctx: Ctx) {
+  debugAttack(step: Step, ctx: Ctx) {
     this.state = 'idle';
     this.startAttack(step, ctx);
   }
 
-  private startAttack(step: 1 | 2 | 3, ctx: Ctx) {
+  private startAttack(step: Step, ctx: Ctx) {
     this.state = 'attack';
     this.st = 0;
     this.attackStep = step;
@@ -147,7 +151,9 @@ export class Player {
     const dist = Math.hypot(dx, dz);
     if (boss.alive && dist < 8) this.heading = Math.atan2(dx, dz);
     else if (this.moveMag > 0.2) this.heading = Math.atan2(this.moveDir.x, this.moveDir.z);
-    ctx.sfx.slash(step);
+    const kind = ATTACK[step].kind;
+    if (kind === 'knife') ctx.sfx.slash(2);
+    else ctx.sfx.whoosh(kind === 'spin' ? 0.7 : kind === 'kick' ? 0.85 : 1.1);
   }
 
   private doHit(ctx: Ctx) {
@@ -155,24 +161,28 @@ export class Player {
     const fwd = this.forward(this.tmp);
     const boss = ctx.boss;
     const c = this.center.clone();
-    const heavy = this.attackStep === 3;
-    // 斬撃の三日月
-    const cp = c.clone().addScaledVector(fwd, 1.1);
-    ctx.fx.crescent(cp, this.heading, this.attackStep === 1 ? 'h' : this.attackStep === 2 ? 'hr' : 'v', heavy ? 0xff6a2a : 0xff9a3a, heavy ? 1.5 : 1.05);
-    if (heavy) ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.2), 0xff6a2a, 3, 0.35);
+    const kind = cfg.kind;
+    const heavy = kind === 'spin';
+    // 演出: ナイフと蹴りは弧、拳は短い閃光
+    const cp = c.clone().addScaledVector(fwd, 0.9);
+    if (kind === 'knife') ctx.fx.crescent(cp, this.heading, 'h', 0xff9a3a, 0.8);
+    else if (kind === 'kick') ctx.fx.crescent(cp, this.heading, 'hr', 0xffc060, 0.9);
+    else if (kind === 'spin') ctx.fx.crescent(cp, this.heading, 'h', 0xff6a2a, 1.5);
+    else ctx.fx.flash(cp, 0xffd0a0, 0.7, 0.1);
+    if (heavy) ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.0), 0xff6a2a, 3, 0.35);
     let hitSomething = false;
     if (boss.alive) {
       const dx = boss.pos.x - this.pos.x, dz = boss.pos.z - this.pos.z;
       const dist = Math.hypot(dx, dz);
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
-      if (dist < 2.5 + boss.radius && dot > Math.cos(1.35)) {
+      if (dist < cfg.reach + boss.radius && dot > Math.cos(1.2)) {
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
         ctx.hitstop(heavy ? 0.1 : 0.05, 0.05);
         ctx.shake(heavy ? 0.7 : 0.3);
         const bc = boss.center.clone();
-        ctx.particles.emit(bc, { color: 0xffb060, count: heavy ? 36 : 18, speed: heavy ? 11 : 7, size: 0.24, life: 0.5 });
-        ctx.particles.emit(bc, { color: 0xff5a2a, count: heavy ? 20 : 8, speed: 4, size: 0.3, life: 0.35, up: 2 });
-        ctx.fx.flash(bc, 0xffc070, heavy ? 2.4 : 1.3);
+        ctx.particles.emit(bc, { color: 0xffb060, count: heavy ? 36 : 14, speed: heavy ? 11 : 6, size: 0.22, life: 0.45 });
+        ctx.particles.emit(bc, { color: 0xff5a2a, count: heavy ? 20 : 6, speed: 4, size: 0.28, life: 0.35, up: 2 });
+        ctx.fx.flash(bc, 0xffc070, heavy ? 2.4 : kind === 'punch' ? 1.0 : 1.3);
         if (heavy) {
           ctx.fx.pillar(boss.pos, 0xff7a3a, 5, 0.6, 0.4);
           ctx.fx.ring(boss.pos, 0xffb347, 4.5, 0.45);
@@ -189,7 +199,7 @@ export class Player {
       if (!b.active || b.owner !== 'boss') continue;
       const dx = b.pos.x - this.pos.x, dz = b.pos.z - this.pos.z;
       const dist = Math.hypot(dx, dz);
-      if (dist > 2.6 + b.r) continue;
+      if (dist > cfg.reach + 0.3 + b.r) continue;
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
       if (dot < Math.cos(1.45)) continue;
       if (Math.abs(b.pos.y - c.y) > 1.7) continue;
@@ -201,8 +211,8 @@ export class Player {
       destroyed++;
     }
     if (destroyed > 0 && !hitSomething) ctx.sfx.hit();
-    // 3 段目は炎の斬撃波を飛ばす
-    if (this.attackStep === 3) {
+    // 5 段目（回し蹴り）は衝撃波を飛ばす
+    if (kind === 'spin') {
       const p = c.clone().addScaledVector(fwd, 0.9);
       ctx.bullets.spawn({ pos: p, vel: fwd.clone().multiplyScalar(14), owner: 'player', kind: 2, r: 0.7, damage: 12, life: 1.1, color: 0xff7a30 });
       ctx.particles.emit(p, { color: 0xff8a30, count: 16, speed: 3, size: 0.28, life: 0.5, dir: fwd, drag: 1 });
@@ -366,9 +376,9 @@ export class Player {
         this.glow = 1;
         this.doHit(ctx);
       }
-      if (this.attackStep < 3 && this.st > cfg.a0 * 0.5 && input.consume('attack')) this.queued = true;
-      if (this.queued && this.st >= cfg.chain && this.attackStep < 3) {
-        this.startAttack((this.attackStep + 1) as 1 | 2 | 3, ctx);
+      if (this.attackStep < 5 && this.st > cfg.a0 * 0.5 && input.consume('attack')) this.queued = true;
+      if (this.queued && this.st >= cfg.chain && this.attackStep < 5) {
+        this.startAttack((this.attackStep + 1) as Step, ctx);
       } else if (this.st >= cfg.total) {
         this.state = 'idle';
         this.st = 0;
@@ -426,18 +436,25 @@ export class Player {
     this.rig.update(dt);
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
-    // 刀の軌跡と火の粉（振り抜き中）
-    if (this.state === 'attack' && this.rig.weapon) {
+    // 軌跡: ナイフは刃、蹴りは右脚（膝→足先）に付ける
+    if (this.state === 'attack') {
       const cfg = ATTACK[this.attackStep];
       if (this.st > cfg.a0 - 0.06 && this.st < cfg.a1 + 0.06) {
         this.group.updateMatrixWorld(true);
-        const w = this.rig.weapon;
-        const b = w.group.localToWorld(w.base.clone());
-        const t = w.group.localToWorld(w.tip.clone());
-        // 軌跡は刀身より少し外まで伸ばして派手に
-        t.sub(b).multiplyScalar(1.45).add(b);
-        ctx.fx.playerTrail.push(b, t);
-        ctx.particles.emit(t, { color: 0xff9a40, count: 2, speed: 1.5, size: 0.15, life: 0.3, drag: 3, up: 0.5 });
+        if (cfg.kind === 'knife' && this.rig.weapon) {
+          const w = this.rig.weapon;
+          const b = w.group.localToWorld(w.base.clone());
+          const t = w.group.localToWorld(w.tip.clone());
+          t.sub(b).multiplyScalar(2.2).add(b);
+          ctx.fx.playerTrail.push(b, t);
+          ctx.particles.emit(t, { color: 0xff9a40, count: 2, speed: 1.5, size: 0.15, life: 0.3, drag: 3, up: 0.5 });
+        } else if (cfg.kind === 'kick' || cfg.kind === 'spin') {
+          const leg = this.rig.lowerLegR;
+          const b = leg.localToWorld(new THREE.Vector3(0, 0, 0));
+          const t = leg.localToWorld(new THREE.Vector3(0, -this.rig.height * 0.3, 0));
+          ctx.fx.playerTrail.push(b, t);
+          ctx.particles.emit(t, { color: 0xffc060, count: 2, speed: 1.5, size: 0.14, life: 0.25, drag: 3 });
+        }
       }
     }
     // 無敵中の点滅

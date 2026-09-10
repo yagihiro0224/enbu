@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Rig } from './Rig';
-import { createKatana } from './Weapons';
+import { createKnife } from './Weapons';
 import { toonGradient } from './Toon';
 
 /**
@@ -162,9 +162,9 @@ export function autoRig(src: THREE.Mesh, opt: AutoRigOptions = {}): Rig {
   root.updateMatrixWorld(true);
   skinned.bind(new THREE.Skeleton(bones));
 
-  let weapon = null as ReturnType<typeof createKatana> | null;
+  let weapon = null as ReturnType<typeof createKnife> | null;
   if (opt.weapon) {
-    weapon = createKatana();
+    weapon = createKnife();
     handR.add(weapon.group);
   }
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { toonMat, addOutline } from './Toon';
 import { eyeTexture, mouthTexture } from './Face';
-import { createKatana, createStaff, type Weapon } from './Weapons';
+import { createKnife, createStaff, type Weapon } from './Weapons';
 import type { Rig } from './Rig';
 
 export interface FigureOptions {
@@ -16,7 +16,7 @@ export interface FigureOptions {
   socks?: THREE.ColorRepresentation;
   hairStyle: 'ponytail' | 'long';
   horns?: boolean;
-  weapon: 'katana' | 'staff' | 'none';
+  weapon: 'knife' | 'staff' | 'none';
 }
 
 const OL = 0.011;
@@ -302,7 +302,7 @@ export function createFigure(opt: FigureOptions): Rig {
 
   // ---- 武器 ----
   let weapon: Weapon | null = null;
-  if (opt.weapon === 'katana') weapon = createKatana(accent, dark);
+  if (opt.weapon === 'knife') weapon = createKnife(accent, dark);
   else if (opt.weapon === 'staff') weapon = createStaff(accent, dark);
   if (weapon) armR.hand.add(weapon.group);
 

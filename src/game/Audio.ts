@@ -65,6 +65,10 @@ export class Sfx {
     this.noise(0.18, { gain: 0.35, freq: 3000 + step * 600, end: 700, q: 0.8 });
     this.tone(500 + step * 120, 0.08, { type: 'triangle', gain: 0.08, end: 200 });
   }
+  /** 拳や蹴りの風切り */
+  whoosh(pitch = 1) {
+    this.noise(0.12, { gain: 0.28, freq: 900 * pitch, end: 2600 * pitch, q: 0.6 });
+  }
   hit() {
     this.noise(0.12, { gain: 0.4, freq: 1200, end: 300, type: 'lowpass' });
     this.tone(180, 0.15, { type: 'square', gain: 0.18, end: 60 });

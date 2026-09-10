@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import type { Rig } from './Rig';
-import { createKatana } from './Weapons';
+import { createKnife } from './Weapons';
 
 /**
  * public/models/player.vrm があれば読み込んで Rig にする。無ければ null。
@@ -54,7 +54,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     }
   });
 
-  const katana = createKatana();
+  const katana = createKnife();
   get('rightHand').add(katana.group);
 
   return {

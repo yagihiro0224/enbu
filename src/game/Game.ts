@@ -77,7 +77,7 @@ export class Game {
 
     this.player = new Player(createFigure({
       hair: 0x1a1020, hairTip: 0xff4a1a, eye: 0xff6a2a, top: 0xf8f0ea, sleeve: 0xd8302a, skirt: 0xd0281e, accent: 0xffb347, socks: 0x1a1020,
-      hairStyle: 'ponytail', weapon: 'katana',
+      hairStyle: 'ponytail', weapon: 'knife',
     }));
     this.boss = new Boss(createFigure({
       hair: 0xf0e8ff, hairTip: 0xa060ff, eye: 0xc040ff, skin: 0xfff0f4, top: 0x2a1040, sleeve: 0x4a2080, skirt: 0x3a1560, accent: 0xff60d0, socks: 0x2a1040,
@@ -114,7 +114,7 @@ export class Game {
     if (q.has('nobitmap')) (window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined;
     // public/models/player.vrm があれば主人公を VRM にする（早送りより先に済ませる）
     const model = q.get('model');
-    if (!model) {
+    if (!model && !q.has('novrm')) {
       try {
         const rig = await tryLoadVrm(`${import.meta.env.BASE_URL}models/player.vrm`);
         if (rig) this.player.setRig(rig);
@@ -144,11 +144,13 @@ export class Game {
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
         // ?slash=1..3 で早送り後に斬撃の途中で止める
         const slash = Number(q.get('slash') ?? 0);
-        if (slash >= 1 && slash <= 3) {
+        if (slash >= 1 && slash <= 5) {
           this.player.invuln = 5;
-          this.player.debugAttack(slash as 1 | 2 | 3, this.ctx);
+          this.player.debugAttack(slash as 1 | 2 | 3 | 4 | 5, this.ctx);
           const frames = Number(q.get('f') ?? 14);
           for (let i = 0; i < frames; i++) this.step(1 / 60);
+          const r = this.player.rig;
+          console.info(`slash dbg step=${slash} st=${this.player.st.toFixed(3)} state=${this.player.state} upperLegR=${r.upperLegR.rotation.x.toFixed(2)} lowerLegR=${r.lowerLegR.rotation.x.toFixed(2)} upperArmL=${r.upperArmL.rotation.toArray().slice(0, 3).map((v) => Number(v).toFixed(2)).join(',')}`);
         }
       }, 300);
     }
@@ -314,10 +316,11 @@ export class Game {
     let desired: THREE.Vector3;
     let look: THREE.Vector3;
     const debugCam = new URLSearchParams(location.search).get('cam');
-    if (debugCam === 'front' || debugCam === 'boss') {
-      // 動作確認用: キャラの正面アップ
-      const t = debugCam === 'front' ? pl : bo;
-      const yaw = t.heading;
+    if (debugCam === 'front' || debugCam === 'boss' || debugCam === 'side' || debugCam === 'side2' || debugCam === 'q') {
+      // 動作確認用: キャラのアップ。front=正面、side=キャラの左側から、side2=右側から、q=斜め前
+      const t = debugCam === 'boss' ? bo : pl;
+      const off = debugCam === 'side' ? Math.PI / 2 : debugCam === 'side2' ? -Math.PI / 2 : debugCam === 'q' ? Math.PI / 4 : 0;
+      const yaw = t.heading + off;
       desired = new THREE.Vector3(t.pos.x + Math.sin(yaw) * 3.2, t.pos.y + 1.5, t.pos.z + Math.cos(yaw) * 3.2);
       look = new THREE.Vector3(t.pos.x, t.pos.y + 1.0, t.pos.z);
     } else if (this.state === 'title') {
