@@ -86,6 +86,23 @@ clean lineart, simple cel shading, game character reference sheet
 negative: background, scenery, multiple views, extra limbs, weapon raised, dynamic pose, text, watermark, blurry, realistic photo
 ```
 
+## AI でキャラを作るパイプライン（2026-09-10 に確立。ComfyUI は C:\Users\yagih\ComfyUI、RTX 5090）
+
+スクリプトの写しは `docs/` にある（実体は ComfyUI/tools/）。
+
+1. 設定画: `tools/charsheet_wan.py --views front --quality` — Wan 2.2 14B T2V を 1 フレームで静止画化。
+   20 ステップでも 20 秒。背面ビューは出ない（正面が出る）。武器は持たせない（スリングの銃になる）
+2. 背景の切り抜き: 外側から連結した白を透明にする（docs/ の手順は paint_mesh.py 冒頭参照、input/assassin_front_rgba.png）
+3. 画像→3D: `tools/img2mesh_hy3d.py --image assassin_front_rgba.png --res 384 --threshold 0.5` —
+   ComfyUI 標準の Hunyuan3D 2.1 ノード（hunyuan_3d_v2.1.safetensors、7.37GB、DL 済み）。30 秒。形状のみ、テクスチャなし。
+   出力の正面は +Z（トゥで判定したら逆だった。ジッパーの見える側が正面）
+4. 色付け: `tools/paint_mesh.py --decimate 60000` — 正面画像を正射影した UV とアトラス（左=正面、右=左右反転して暗くした背面、
+   後頭部は髪色で塗りつぶし）。60k 面で 2MB
+5. ゲームに入れる: `public/models/<名前>.glb` に置き、`?model=<名前>` で起動すると AutoRig.ts が比率ベースで骨とウェイトを付けて
+   主人公に差し替える（Mixamo 不要）。A ポーズ前提。ヘッドレス確認は `?model=assassin&nobitmap&t=1.6&cam=front`
+   （仮想時間下では createImageBitmap が返らないので nobitmap が要る）
+6. 現在 `public/models/assassin.glb` が殺し屋の女の子の主人公モデル
+
 ## 別の PC で始める手順
 
 1. `git clone https://github.com/yagihiro0224/enbu.git && cd enbu && npm install`

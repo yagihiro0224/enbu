@@ -105,7 +105,7 @@ export class Fx {
    * 斬撃の三日月。yaw はキャラの向き、mode: 'h' 横薙ぎ(右→左)、'hr' 横薙ぎ(左→右)、'v' 縦
    */
   crescent(pos: THREE.Vector3, yaw: number, mode: 'h' | 'hr' | 'v', color: THREE.ColorRepresentation = 0xff8a3a, size = 1) {
-    const mat = new THREE.MeshBasicMaterial({ color: this.hdr(color, 2.4), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const mat = new THREE.MeshBasicMaterial({ color: this.hdr(color, 1.7), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
     const m = new THREE.Mesh(this.crescentGeo, mat);
     m.position.copy(pos);
     m.rotation.order = 'YXZ';
@@ -117,7 +117,7 @@ export class Fx {
     m.rotation.z = z0;
     const s0 = 0.8 * size, s1 = 1.35 * size;
     // 2 枚重ねて中心を白く
-    const core = new THREE.Mesh(this.crescentGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.5, 2.2, 1.8), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    const core = new THREE.Mesh(this.crescentGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.4, 1.1), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
     core.scale.setScalar(0.85);
     m.add(core);
     this.add(m, 0.26, (o, t) => {

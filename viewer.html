@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <title>GLB viewer</title>
+    <style>html,body{margin:0;background:#2a2030;height:100%;overflow:hidden}canvas{display:block}</style>
+  </head>
+  <body>
+    <script type="module">
+      // 動作確認用: ?file=models/xxx.glb&yaw=0..360（度）&dist=2.4
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+      const q = new URLSearchParams(location.search);
+      const file = q.get('file') ?? 'models/assassin_painted.glb';
+      const yaw = (Number(q.get('yaw') ?? 0) * Math.PI) / 180;
+      const dist = Number(q.get('dist') ?? 2.6);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(innerWidth, innerHeight);
+      renderer.setPixelRatio(1);
+      document.body.appendChild(renderer.domElement);
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x2a2030);
+      const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.01, 100);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x604060, 1.2));
+      const d = new THREE.DirectionalLight(0xffffff, 1.5); d.position.set(2, 4, 3); scene.add(d);
+      const grid = new THREE.GridHelper(2, 10, 0x806080, 0x504060); scene.add(grid);
+      const axes = new THREE.AxesHelper(0.5); scene.add(axes);
+      new GLTFLoader().load(file, (g) => {
+        g.scene.traverse((o) => {
+          if (o.isMesh) {
+            const old = o.material;
+            o.material = new THREE.MeshStandardMaterial({ map: old.map ?? null, vertexColors: !!o.geometry.attributes.color, roughness: 0.9, side: THREE.DoubleSide });
+          }
+        });
+        scene.add(g.scene);
+        const box = new THREE.Box3().setFromObject(g.scene); const c = box.getCenter(new THREE.Vector3());
+        camera.position.set(c.x + Math.sin(yaw) * dist, c.y + 0.1, c.z + Math.cos(yaw) * dist);
+        camera.lookAt(c);
+        renderer.render(scene, camera);
+        document.title = 'loaded';
+      }, undefined, (e) => { document.title = 'error ' + e; });
+    </script>
+  </body>
+</html>

@@ -109,6 +109,23 @@ export class Game {
     this.renderer.setAnimationLoop(() => this.frame());
     // 動作確認用: ?autostart で即開始、?t=秒 でその時間まで早送り、?bot で自動操作
     const q = new URLSearchParams(location.search);
+    // ?model=名前 で public/models/<名前>.glb（骨なしメッシュ）を自動リグして主人公にする
+    const model = q.get('model');
+    if (model) {
+      // ヘッドレス Chrome の仮想時間では createImageBitmap が返ってこないので、?nobitmap で無効化できるようにする
+      if (q.has('nobitmap')) (window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined;
+      try {
+        const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+        const { autoRig } = await import('./AutoRig');
+        const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/${model}.glb`);
+        let mesh: THREE.Mesh | null = null;
+        gltf.scene.traverse((o) => { if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh; });
+        if (mesh) this.player.setRig(autoRig(mesh, { height: 1.65, weapon: true }));
+        console.info(`model ${model} loaded in ${performance.now().toFixed(0)}ms`);
+      } catch (e) {
+        console.warn('モデルの読み込みに失敗', e);
+      }
+    }
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
