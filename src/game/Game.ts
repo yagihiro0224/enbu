@@ -112,8 +112,10 @@ export class Game {
     const w = window.innerWidth, h = window.innerHeight;
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
+    // 縦画面では縦の画角を広げて視野を確保する
+    this.camera.fov = this.camera.aspect < 1 ? Math.min(78, FOV / Math.sqrt(this.camera.aspect)) : FOV;
     this.camera.updateProjectionMatrix();
-    this.particles.setViewport(h * this.renderer.getPixelRatio(), FOV);
+    this.particles.setViewport(h * this.renderer.getPixelRatio(), this.camera.fov);
   }
 
   private start() {
@@ -259,7 +261,9 @@ export class Game {
       const toB = this.tmp.set(bo.pos.x - pl.pos.x, 0, bo.pos.z - pl.pos.z);
       const len = toB.length();
       const dir = len > 0.05 ? toB.divideScalar(len) : pl.forward(new THREE.Vector3());
-      desired = new THREE.Vector3(pl.pos.x - dir.x * 6.6, pl.pos.y + 3.7, pl.pos.z - dir.z * 6.6);
+      // 縦画面では少し引く
+      const k = this.camera.aspect < 1 ? 1.3 : 1;
+      desired = new THREE.Vector3(pl.pos.x - dir.x * 6.6 * k, pl.pos.y + 3.7 * k, pl.pos.z - dir.z * 6.6 * k);
       look = new THREE.Vector3(pl.pos.x, pl.pos.y + 1.1, pl.pos.z).addScaledVector(dir, Math.min(len, 10) * 0.4);
       if (!bo.alive) { desired.y += 1; }
     }
@@ -275,6 +279,10 @@ export class Game {
     this.camera.position.set(this.camPos.x + rand(-s, s), Math.max(0.8, this.camPos.y + rand(-s, s)), this.camPos.z + rand(-s, s));
     this.camera.lookAt(this.camLook);
     this.camYaw = Math.atan2(this.camLook.x - this.camPos.x, this.camLook.z - this.camPos.z);
+    // カメラに被る灯籠は隠す
+    for (const l of this.arena.lanterns) {
+      l.visible = Math.hypot(l.position.x - this.camPos.x, l.position.z - this.camPos.z) > 2.8;
+    }
     void dt;
   }
 }

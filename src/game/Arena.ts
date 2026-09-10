@@ -76,6 +76,7 @@ function skyDome(): THREE.Mesh {
 export interface ArenaResult {
   group: THREE.Group;
   embers: THREE.Points;
+  lanterns: THREE.Group[];
   update(dt: number): void;
 }
 
@@ -124,6 +125,7 @@ export function createArena(R: number): ArenaResult {
   // 石灯籠
   const stone = toonMat(0x6a5670);
   const lanternLight = new THREE.MeshBasicMaterial({ color: 0xffc070, toneMapped: false });
+  const lanterns: THREE.Group[] = [];
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * TAU + Math.PI / 8;
     const l = new THREE.Group();
@@ -140,8 +142,9 @@ export function createArena(R: number): ArenaResult {
     roof.rotation.y = Math.PI / 4;
     for (const m of [base, pole, box, roof]) addOutline(m, 0.02);
     l.add(base, pole, box, glow, roof);
-    l.position.set(Math.cos(a) * (R + 2.2), -0.2, Math.sin(a) * (R + 2.2));
+    l.position.set(Math.cos(a) * (R + 3.4), -0.3, Math.sin(a) * (R + 3.4));
     group.add(l);
+    lanterns.push(l);
   }
 
   // 遠景の山と月
@@ -187,6 +190,7 @@ export function createArena(R: number): ArenaResult {
   return {
     group,
     embers,
+    lanterns,
     update(dt) {
       t += dt;
       const p = eg.getAttribute('position') as THREE.BufferAttribute;
