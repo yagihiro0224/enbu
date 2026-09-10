@@ -124,6 +124,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - ヒット時は hitstop / shake / punch（画角の一瞬の絞り、Ctx.punch）を段ごとに強くする
 - ユーザー決定: 素手は格闘中心、銃を拾えば銃中心、ナイフを拾えばナイフ中心（武器拾得でスタイル切替）。未実装
 
+## 主人公 2 人制（2026-09-11）
+
+- UI.ts の `CHARS`: mahiro = 深川まひろ（player.vrm）、chisato = 杉本ちさと（chisato.vrm）。どちらもユーザー自作の VRM
+- 起動時に両方を読み込み（Promise.all）、タイトルでキャラ選択。ゲーム中は HUD 左上の「交代」（PC は Q）で入れ替え。
+  交代は待機・移動中のみ、クールダウン 1.2 秒、HP は共有。Player.setRig(rig, keepOld=true) で破棄せず切り替える
+- VRoid のプロジェクトファイル（.vroid）は `vroid/` に置く。public/ には入れない（公開サイトに乗るため）
+- 敵の弾は Boss.ts の BULLET_DENSITY = 0.1 で 10 発に 1 発（ユーザー指示「攻撃球を 10 分の 1 に」）。fire() の累積カウンタで間引く
+- 動作確認: `?char=chisato`、`?t=2&swap`（交代を実行）
+
 ## 別の PC で始める手順
 
 1. `git clone https://github.com/yagihiro0224/enbu.git && cd enbu && npm install`

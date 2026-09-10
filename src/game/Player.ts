@@ -63,15 +63,23 @@ export class Player {
     this.anim = new Animator(rig);
   }
 
-  /** VRM などへ見た目を差し替える */
-  setRig(rig: Rig) {
+  /** VRM などへ見た目を差し替える。keepOld を付けると元のリグを破棄しない（交代用） */
+  setRig(rig: Rig, keepOld = false) {
     this.group.remove(this.rig.root);
-    this.rig.dispose();
+    if (!keepOld) this.rig.dispose();
     this.rig = rig;
     this.group.add(rig.root);
+    rig.root.rotation.y = this.heading;
     this.anim = new Animator(rig);
     // 格闘スタイルなので両手は常に握る（右手はナイフのグリップ）
     rig.setFist?.(1, 1);
+    this.rig.setFlash(0);
+    this.rig.setWeaponGlow(0);
+  }
+
+  /** 交代できる状態か（待機・移動中のみ） */
+  get canSwap() {
+    return this.alive && (this.state === 'idle' || this.state === 'run');
   }
 
   reset() {

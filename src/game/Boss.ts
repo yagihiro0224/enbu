@@ -7,6 +7,8 @@ import type { Ctx } from './Ctx';
 import type { Fx } from './Fx';
 
 type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead';
+/** 敵の弾の密度（2026-09-11 ユーザー指示で 1/10 に） */
+const BULLET_DENSITY = 0.1;
 type Pattern = Generator<number, void, unknown>;
 
 export class Boss {
@@ -152,7 +154,12 @@ export class Boss {
   }
 
   // ---- 弾の発射 ----
+  /** 弾の密度。1 で全弾、0.1 で 10 発に 1 発（パターンの並びを保ったまま間引く） */
+  private fireAcc = 0;
   private fire(ctx: Ctx, from: THREE.Vector3, dir: THREE.Vector3, speed: number, o: { kind?: 0 | 1 | 2; r?: number; color?: number; damage?: number; life?: number; homing?: number; gravity?: number; bounce?: boolean }) {
+    this.fireAcc += BULLET_DENSITY;
+    if (this.fireAcc < 1) return null;
+    this.fireAcc -= 1;
     return ctx.bullets.spawn({
       pos: from, vel: dir.clone().normalize().multiplyScalar(speed * this.speedMul), owner: 'boss',
       kind: o.kind ?? 0, r: o.r ?? 0.3, color: o.color ?? 0xff5fb0, damage: o.damage ?? 10, life: o.life ?? 8,
@@ -240,9 +247,10 @@ export class Boss {
         const l = Math.hypot(p.x, p.z);
         if (l > lim) { p.x *= lim / l; p.z *= lim / l; }
         // 着弾点の予告
-        ctx.particles.emit(new THREE.Vector3(p.x, 0.1, p.z), { color: 0xff9040, count: 6, speed: 0.8, size: 0.25, life: 0.7, drag: 0.5, up: 0.6 });
+        const marker = new THREE.Vector3(p.x, 0.1, p.z);
         p.y = 6.5;
-        this.fire(ctx, p, this.tmp.set(0, -1, 0), 2.5, { color: 0xff9040, r: 0.32, gravity: 10, bounce: true, life: 4, damage: 12 });
+        const b = this.fire(ctx, p, this.tmp.set(0, -1, 0), 2.5, { color: 0xff9040, r: 0.32, gravity: 10, bounce: true, life: 4, damage: 12 });
+        if (b) ctx.particles.emit(marker, { color: 0xff9040, count: 6, speed: 0.8, size: 0.25, life: 0.7, drag: 0.5, up: 0.6 });
       }
       ctx.sfx.bossShoot();
       yield 0.12;

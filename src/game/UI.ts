@@ -38,10 +38,31 @@ const CSS = `
 .overlay .stats { font-size: 15px; color: #ffe6c0; letter-spacing: 0.1em; }
 .overlay .res-win { color: #ffe08a; }
 .overlay .res-lose { background: linear-gradient(180deg, #d0c0ff, #8a5aff); -webkit-background-clip: text; background-clip: text; }
+.charsel { display: flex; gap: 18px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
+.charsel.hidden { display: none; }
+.charcard { pointer-events: auto; min-width: 180px; padding: 16px 26px; border-radius: 16px; border: 2px solid rgba(255,214,192,0.7);
+  background: linear-gradient(180deg, rgba(60,20,40,0.7), rgba(20,6,14,0.85)); color: #fff; font-family: inherit; cursor: pointer; transition: transform 0.1s, border-color 0.1s; }
+.charcard b { display: block; font-size: 22px; letter-spacing: 0.2em; }
+.charcard small { display: block; font-size: 10px; letter-spacing: 0.3em; color: #ffd6c0; margin-top: 4px; }
+.charcard:hover, .charcard:active { transform: scale(1.05); border-color: #ffb347; }
+.overlay .hint { margin-top: 18px; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; }
+#swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 44px); pointer-events: auto;
+  width: 64px; height: 44px; border-radius: 22px; border: 2px solid rgba(255,255,255,0.5); background: rgba(40,10,25,0.55); color: #fff; font-family: inherit;
+  font-weight: 700; font-size: 15px; letter-spacing: 0.1em; line-height: 1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: transform 0.06s, opacity 0.2s; }
+#swap small { display: block; font-size: 9px; font-weight: 400; opacity: 0.8; }
+#swap.hidden { display: none; }
+#swap.cool { opacity: 0.45; }
+#swap:active { transform: scale(0.92); background: rgba(255,120,60,0.6); }
 #help { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6);
   letter-spacing: 0.1em; text-shadow: 0 1px 3px #000; white-space: nowrap; }
 #fps { position: absolute; left: 8px; bottom: 6px; font-size: 10px; color: rgba(255,255,255,0.4); font-family: monospace; }
 `;
+
+export type CharId = 'mahiro' | 'chisato';
+export const CHARS: Record<CharId, { name: string; file: string }> = {
+  mahiro: { name: '深川まひろ', file: 'player.vrm' },
+  chisato: { name: '杉本ちさと', file: 'chisato.vrm' },
+};
 
 export class UI {
   private php: HTMLElement;
@@ -63,7 +84,7 @@ export class UI {
   private comboTimer = 0;
   private flashV = 0;
   private vigV = 0;
-  onStart: () => void = () => {};
+  onStart: (c: CharId) => void = () => {};
   onRetry: () => void = () => {};
 
   constructor(parent: HTMLElement) {
@@ -78,15 +99,21 @@ export class UI {
       <div id="bhp-wrap"><div class="name">妖魔 ─ 紫苑</div><div class="bar" id="bhp"><b></b><i></i><span class="ph" style="left:60%"></span><span class="ph" style="left:30%"></span></div></div>
       <div id="combo"><div class="n">0</div><div class="l">COMBO</div></div>
       <div id="banner"></div>
-      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃</div>
+      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・Q 交代</div>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">
         <h1>炎舞<small>─ ENBU ─</small></h1>
         <p>妖魔の少女・紫苑が放つ立体弾幕を、回避と受け流しでさばきながらコンボを叩き込め。<br>
         「受」は弾に触れる直前に押すと弾き返して反撃できる。「避」は無敵で突っ切れる。</p>
-        <div class="tap">タップして開始</div>
+        <div class="tap" id="loading">読み込み中…</div>
+        <div class="charsel hidden" id="charsel">
+          <button class="charcard" data-char="mahiro"><b>深川まひろ</b><small>FUKAGAWA MAHIRO</small></button>
+          <button class="charcard" data-char="chisato"><b>杉本ちさと</b><small>SUGIMOTO CHISATO</small></button>
+        </div>
+        <div class="hint">キャラクターを選んで開始 ／ ゲーム中は「交代」でいつでも入れ替え</div>
       </div>
+      <button id="swap" class="hidden"><span>交代</span><small>Q</small></button>
       <div class="overlay hidden" id="result">
         <h1 id="result-title">浄化完了</h1>
         <div class="stats" id="result-stats"></div>
@@ -109,9 +136,31 @@ export class UI {
     this.resultTitle = q('#result-title');
     this.resultStats = q('#result-stats');
     this.fpsEl = q('#fps');
-    this.title.addEventListener('pointerdown', () => this.onStart());
+    this.playerName = q('#php-wrap .name');
+    this.loadingEl = q('#loading');
+    this.charsel = q('#charsel');
+    this.swapBtn = q('#swap');
+    for (const b of hud.querySelectorAll<HTMLElement>('.charcard')) {
+      b.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(b.dataset.char as CharId); });
+    }
+    this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });
     q('#retry').addEventListener('click', () => this.onRetry());
   }
+
+  private playerName: HTMLElement;
+  private loadingEl: HTMLElement;
+  private charsel: HTMLElement;
+  private swapBtn: HTMLElement;
+  onSwap: () => void = () => {};
+
+  /** 読み込み完了後にキャラ選択を出す */
+  setReady(ready: boolean) {
+    this.loadingEl.style.display = ready ? 'none' : '';
+    this.charsel.classList.toggle('hidden', !ready);
+  }
+  setPlayerName(name: string) { this.playerName.textContent = name; }
+  setSwapVisible(v: boolean) { this.swapBtn.classList.toggle('hidden', !v); }
+  setSwapCooldown(v: boolean) { this.swapBtn.classList.toggle('cool', v); }
 
   setPlayerHp(frac: number) {
     this.php.style.transform = `scaleX(${Math.max(0, frac)})`;

@@ -10,6 +10,8 @@ import { Fx } from './Fx';
 import { Player } from './Player';
 import { Boss } from './Boss';
 import { tryLoadVrm } from './VrmRig';
+import type { Rig } from './Rig';
+import { CHARS, type CharId } from './UI';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -100,8 +102,10 @@ export class Game {
       onPlayerDead: () => this.finish(false),
     };
 
-    this.ui.onStart = () => this.start();
+    this.ui.onStart = (c) => this.start(c);
     this.ui.onRetry = () => this.restart();
+    this.ui.onSwap = () => this.swap();
+    window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
     document.addEventListener('visibilitychange', () => { this.lastFrame = performance.now(); });
@@ -115,16 +119,23 @@ export class Game {
     // ?model=名前 で public/models/<名前>.glb（骨なしメッシュ）を自動リグして主人公にする
     // ヘッドレス Chrome の仮想時間では createImageBitmap が返ってこないので、?nobitmap で無効化できるようにする
     if (q.has('nobitmap')) (window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined;
-    // public/models/player.vrm があれば主人公を VRM にする（早送りより先に済ませる）
+    // 2 人の主人公の VRM を読み込む（早送りより先に済ませる）
     const model = q.get('model');
     if (!model && !q.has('novrm')) {
-      try {
-        const rig = await tryLoadVrm(`${import.meta.env.BASE_URL}models/player.vrm`);
-        if (rig) this.player.setRig(rig);
-      } catch (e) {
-        console.warn('VRM の読み込みに失敗。標準キャラを使います', e);
-      }
+      const ids = Object.keys(CHARS) as CharId[];
+      const loaded = await Promise.all(ids.map(async (id) => {
+        try {
+          return await tryLoadVrm(`${import.meta.env.BASE_URL}models/${CHARS[id].file}`);
+        } catch (e) {
+          console.warn(`${CHARS[id].name} の VRM 読み込みに失敗`, e);
+          return null;
+        }
+      }));
+      ids.forEach((id, i) => { this.rigs[id] = loaded[i]; });
+      const first = (q.get('char') as CharId | null) ?? 'mahiro';
+      this.setChar(this.rigs[first] ? first : ids.find((id) => this.rigs[id]) ?? first);
     }
+    this.ui.setReady(true);
     if (model) {
       try {
         const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
@@ -141,10 +152,12 @@ export class Game {
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
-        this.start();
+        this.start(this.current);
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?swap で早送り後に交代を 1 回実行して 20 コマ進める
+        if (q.has('swap')) { this.swap(); for (let i = 0; i < 20; i++) this.step(1 / 60); console.info(`swap dbg -> ${this.current}`); }
         // ?combo で 5 段コンボを 30fps の連続コマにして画面に貼る（cols 列 × rows 行）
         if (q.has('combo')) {
           this.player.invuln = 9;
@@ -196,8 +209,39 @@ export class Game {
     this.particles.setViewport(h * this.renderer.getPixelRatio(), this.camera.fov);
   }
 
-  private start() {
+  private rigs: Partial<Record<CharId, Rig | null>> = {};
+  private current: CharId = 'mahiro';
+  private swapCd = 0;
+
+  /** 主人公を切り替える（読み込み済みの VRM のみ） */
+  private setChar(id: CharId) {
+    const rig = this.rigs[id];
+    if (!rig) return false;
+    if (this.player.rig !== rig) this.player.setRig(rig, true);
+    this.current = id;
+    this.ui.setPlayerName(CHARS[id].name);
+    return true;
+  }
+
+  /** ゲーム中の交代 */
+  private swap() {
+    if (this.state !== 'play' || this.swapCd > 0 || !this.player.canSwap) return;
+    const next: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
+    if (!this.rigs[next]) return;
+    const c = this.player.center.clone();
+    this.fx.flash(c, 0xffffff, 3.2, 0.25);
+    this.fx.ring(this.player.pos, 0xffd6c0, 2.5, 0.35);
+    this.particles.emit(c, { color: 0xffe0c0, count: 30, speed: 5, size: 0.22, life: 0.5 });
+    this.setChar(next);
+    this.player.invuln = Math.max(this.player.invuln, 0.5);
+    this.swapCd = 1.2;
+    this.ui.showBanner(CHARS[next].name, '#ffd6c0', 0.9);
+    this.sfx.teleport();
+  }
+
+  private start(char: CharId) {
     if (this.state !== 'title') return;
+    this.setChar(char);
     this.sfx.unlock();
     this.sfx.start();
     this.ui.hideTitle();
@@ -226,6 +270,7 @@ export class Game {
     this.playTime = 0;
     this.input.reset();
     this.input.enabled = true;
+    this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }
 
@@ -236,6 +281,7 @@ export class Game {
     this.overTimer = 0;
     this.input.enabled = false;
     this.input.reset();
+    this.ui.setSwapVisible(false);
     this.ctx.hitstop(2.2, 0.3);
     if (win) { this.sfx.win(); this.ui.showBanner('浄化', '#ffe08a', 2); this.ui.flash(0.8); }
     else { this.sfx.lose(); this.ui.showBanner('散華', '#c0a0ff', 2); }
@@ -283,6 +329,7 @@ export class Game {
 
     this.input.update(real);
     this.ui.update(real);
+    if (this.swapCd > 0) { this.swapCd -= real; if (this.swapCd <= 0) this.ui.setSwapCooldown(false); else this.ui.setSwapCooldown(true); }
     this.arena.update(dt);
 
     const playing = this.state === 'play';
