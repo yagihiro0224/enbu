@@ -345,7 +345,15 @@ export class Game {
     let desired: THREE.Vector3;
     let look: THREE.Vector3;
     const debugCam = new URLSearchParams(location.search).get('cam');
-    if (debugCam === 'front' || debugCam === 'boss' || debugCam === 'side' || debugCam === 'side2' || debugCam === 'q') {
+    if (debugCam === 'hand' || debugCam === 'handR') {
+      // 動作確認用: 手元のアップ（拳の形を見る）
+      const arm = debugCam === 'hand' ? pl.rig.lowerArmL : pl.rig.lowerArmR;
+      pl.group.updateMatrixWorld(true);
+      const hand = arm.localToWorld(new THREE.Vector3((debugCam === 'hand' ? 1 : -1) * pl.rig.height * 0.2, 0, 0));
+      const yaw = pl.heading + (debugCam === 'hand' ? -Math.PI / 2 : Math.PI / 2);
+      desired = new THREE.Vector3(hand.x + Math.sin(yaw) * 0.9, hand.y + 0.25, hand.z + Math.cos(yaw) * 0.9);
+      look = hand;
+    } else if (debugCam === 'front' || debugCam === 'boss' || debugCam === 'side' || debugCam === 'side2' || debugCam === 'q') {
       // 動作確認用: キャラのアップ。front=正面、side=キャラの左側から、side2=右側から、q=斜め前
       const t = debugCam === 'boss' ? bo : pl;
       const off = debugCam === 'side' ? Math.PI / 2 : debugCam === 'side2' ? -Math.PI / 2 : debugCam === 'q' ? Math.PI / 4 : 0;

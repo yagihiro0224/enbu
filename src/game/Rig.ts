@@ -32,6 +32,8 @@ export interface Rig {
   setFlash(v: number): void;
   /** 武器の発光 0..1 */
   setWeaponGlow(v: number): void;
+  /** 指を握る 0..1（指の骨がある VRM のみ有効） */
+  setFist?(left: number, right: number): void;
   update(dt: number): void;
   dispose(): void;
 }

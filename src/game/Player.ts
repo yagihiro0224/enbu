@@ -70,6 +70,8 @@ export class Player {
     this.rig = rig;
     this.group.add(rig.root);
     this.anim = new Animator(rig);
+    // 格闘スタイルなので両手は常に握る（右手はナイフのグリップ）
+    rig.setFist?.(1, 1);
   }
 
   reset() {

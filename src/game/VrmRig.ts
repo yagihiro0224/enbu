@@ -57,6 +57,33 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
   const katana = createKnife();
   get('rightHand').add(katana.group);
 
+  // 指の骨（T ポーズで指は ±X 方向、掌は下向き）。握る = Z 回転で掌側（-Y）へ曲げる
+  const fingerBones = (side: 'left' | 'right') => {
+    const names: VRMHumanBoneName[] = [];
+    for (const f of ['Index', 'Middle', 'Ring', 'Little'] as const) {
+      for (const j of ['Proximal', 'Intermediate', 'Distal'] as const) names.push(`${side}${f}${j}` as VRMHumanBoneName);
+    }
+    const thumbs: VRMHumanBoneName[] = [`${side}ThumbMetacarpal`, `${side}ThumbProximal`, `${side}ThumbDistal`] as VRMHumanBoneName[];
+    return {
+      fingers: names.map((n) => h.getNormalizedBoneNode(n)).filter((b): b is THREE.Object3D => !!b),
+      thumbs: thumbs.map((n) => h.getNormalizedBoneNode(n)).filter((b): b is THREE.Object3D => !!b),
+    };
+  };
+  const fL = fingerBones('left');
+  const fR = fingerBones('right');
+  const curl = (set: { fingers: THREE.Object3D[]; thumbs: THREE.Object3D[] }, sign: number, v: number) => {
+    // 関節ごとに 第1 1.3, 第2 1.5, 第3 1.0 rad
+    set.fingers.forEach((b, i) => {
+      const k = [1.3, 1.5, 1.0][i % 3];
+      b.rotation.set(0, 0, -sign * k * v);
+    });
+    // 親指は指の外側に被せる: 少し内へ回してから曲げる
+    set.thumbs.forEach((b, i) => {
+      const k = [0.2, 0.6, 0.7][i];
+      b.rotation.set(-sign * 0.5 * v * (i === 0 ? 1 : 0), 0, -sign * k * v);
+    });
+  };
+
   return {
     root,
     hips,
@@ -83,6 +110,10 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     },
     setWeaponGlow(v) {
       katana.setGlow(v);
+    },
+    setFist(l, r) {
+      curl(fL, 1, l);
+      curl(fR, -1, r);
     },
     update(dt) {
       vrm.update(dt);
