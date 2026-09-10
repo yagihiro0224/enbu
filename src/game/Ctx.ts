@@ -5,11 +5,13 @@ import type { UI } from './UI';
 import type { Input } from './Input';
 import type { Player } from './Player';
 import type { Boss } from './Boss';
+import type { Fx } from './Fx';
 
 /** 各エンティティが参照するゲーム共有コンテキスト */
 export interface Ctx {
   bullets: Bullets;
   particles: Particles;
+  fx: Fx;
   sfx: Sfx;
   ui: UI;
   input: Input;

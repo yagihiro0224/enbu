@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import type { Weapon } from './Weapons';
 
 /**
  * キャラクターの骨格抽象。
- * プリミティブ製ちびキャラも VRM も同じインターフェースで手続きアニメを当てる。
+ * プリミティブ製キャラも VRM も同じインターフェースで手続きアニメを当てる。
  * 規約: root は足元原点、+Z が正面、T ポーズ基準（左腕は +X、右腕は -X 方向）。
  */
 export interface Rig {
@@ -20,7 +21,9 @@ export interface Rig {
   lowerLegR: THREE.Object3D;
   /** 武器を付けるノード（右手先） */
   handR: THREE.Object3D;
-  /** 揺れ物（ツインテールなど）。速度に応じてなびかせる */
+  /** 持っている武器（軌跡エフェクト用） */
+  weapon: Weapon | null;
+  /** 揺れ物（ポニーテールなど）。速度に応じてなびかせる */
   hairBones: THREE.Object3D[];
   /** 骨盤の基準高さ（足元からの距離） */
   hipsHeight: number;

@@ -4,7 +4,7 @@ let gradient: THREE.DataTexture | null = null;
 /** 3段階のトゥーン用グラデーションマップ */
 export function toonGradient(): THREE.DataTexture {
   if (gradient) return gradient;
-  const colors = new Uint8Array([70, 150, 255]);
+  const colors = new Uint8Array([105, 175, 255]);
   gradient = new THREE.DataTexture(colors, colors.length, 1, THREE.RedFormat);
   gradient.minFilter = THREE.NearestFilter;
   gradient.magFilter = THREE.NearestFilter;

@@ -87,7 +87,7 @@ export class Player {
     return this.state !== 'dead';
   }
   get center(): THREE.Vector3 {
-    return this.tmp2.set(this.pos.x, this.pos.y + 0.85, this.pos.z);
+    return this.tmp2.set(this.pos.x, this.pos.y + this.rig.height * 0.52, this.pos.z);
   }
   forward(out: THREE.Vector3): THREE.Vector3 {
     return out.set(Math.sin(this.heading), 0, Math.cos(this.heading));
@@ -130,6 +130,12 @@ export class Player {
     return true;
   }
 
+  /** 動作確認用: 指定段の攻撃を強制的に開始する */
+  debugAttack(step: 1 | 2 | 3, ctx: Ctx) {
+    this.state = 'idle';
+    this.startAttack(step, ctx);
+  }
+
   private startAttack(step: 1 | 2 | 3, ctx: Ctx) {
     this.state = 'attack';
     this.st = 0;
@@ -149,17 +155,29 @@ export class Player {
     const fwd = this.forward(this.tmp);
     const boss = ctx.boss;
     const c = this.center.clone();
+    const heavy = this.attackStep === 3;
+    // 斬撃の三日月
+    const cp = c.clone().addScaledVector(fwd, 1.1);
+    ctx.fx.crescent(cp, this.heading, this.attackStep === 1 ? 'h' : this.attackStep === 2 ? 'hr' : 'v', heavy ? 0xff6a2a : 0xff9a3a, heavy ? 1.5 : 1.05);
+    if (heavy) ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.2), 0xff6a2a, 3, 0.35);
     let hitSomething = false;
     if (boss.alive) {
       const dx = boss.pos.x - this.pos.x, dz = boss.pos.z - this.pos.z;
       const dist = Math.hypot(dx, dz);
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
       if (dist < 2.5 + boss.radius && dot > Math.cos(1.35)) {
-        const heavy = this.attackStep === 3;
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
         ctx.hitstop(heavy ? 0.1 : 0.05, 0.05);
-        ctx.shake(heavy ? 0.6 : 0.25);
-        ctx.particles.emit(boss.center, { color: 0xffb060, count: heavy ? 26 : 14, speed: heavy ? 9 : 6, size: 0.22, life: 0.45 });
+        ctx.shake(heavy ? 0.7 : 0.3);
+        const bc = boss.center.clone();
+        ctx.particles.emit(bc, { color: 0xffb060, count: heavy ? 36 : 18, speed: heavy ? 11 : 7, size: 0.24, life: 0.5 });
+        ctx.particles.emit(bc, { color: 0xff5a2a, count: heavy ? 20 : 8, speed: 4, size: 0.3, life: 0.35, up: 2 });
+        ctx.fx.flash(bc, 0xffc070, heavy ? 2.4 : 1.3);
+        if (heavy) {
+          ctx.fx.pillar(boss.pos, 0xff7a3a, 5, 0.6, 0.4);
+          ctx.fx.ring(boss.pos, 0xffb347, 4.5, 0.45);
+          ctx.ui.flash(0.2);
+        }
         if (heavy) ctx.sfx.heavyHit(); else ctx.sfx.hit();
         this.registerHit(ctx);
         hitSomething = true;
@@ -176,14 +194,18 @@ export class Player {
       if (dot < Math.cos(1.45)) continue;
       if (Math.abs(b.pos.y - c.y) > 1.7) continue;
       b.active = false;
-      if (destroyed < 12) ctx.particles.emit(b.pos, { color: b.color, count: 4, speed: 3, size: 0.16, life: 0.3 });
+      if (destroyed < 12) {
+        ctx.particles.emit(b.pos, { color: b.color, count: 5, speed: 4, size: 0.18, life: 0.3 });
+        if (destroyed < 4) ctx.fx.flash(b.pos, b.color, 1.0, 0.12);
+      }
       destroyed++;
     }
     if (destroyed > 0 && !hitSomething) ctx.sfx.hit();
     // 3 段目は炎の斬撃波を飛ばす
     if (this.attackStep === 3) {
       const p = c.clone().addScaledVector(fwd, 0.9);
-      ctx.bullets.spawn({ pos: p, vel: fwd.clone().multiplyScalar(14), owner: 'player', kind: 2, r: 0.6, damage: 12, life: 1.1, color: 0xff7a30 });
+      ctx.bullets.spawn({ pos: p, vel: fwd.clone().multiplyScalar(14), owner: 'player', kind: 2, r: 0.7, damage: 12, life: 1.1, color: 0xff7a30 });
+      ctx.particles.emit(p, { color: 0xff8a30, count: 16, speed: 3, size: 0.28, life: 0.5, dir: fwd, drag: 1 });
     }
   }
 
@@ -202,6 +224,7 @@ export class Player {
     this.heading = Math.atan2(this.dodgeDir.x, this.dodgeDir.z);
     this.dodgeCd = 0.5;
     ctx.sfx.dodge();
+    ctx.fx.ring(this.pos, 0x80d0ff, 1.6, 0.25);
   }
 
   private startParry(ctx: Ctx) {
@@ -244,10 +267,12 @@ export class Player {
         ctx.shake(0.35);
         ctx.ui.showBanner('弾き返し！', '#ffe066');
         ctx.ui.flash(0.25);
+        ctx.fx.flash(c, 0xffe066, 3.5, 0.25);
+        ctx.fx.ring(this.pos, 0xffe066, 3.2, 0.35);
         this.parries++;
         this.registerHit(ctx);
       }
-      ctx.particles.emit(c, { color: 0xffe066, count: Math.min(24, 6 + n * 3), speed: 7, size: 0.22, life: 0.4 });
+      ctx.particles.emit(c, { color: 0xffe066, count: Math.min(30, 8 + n * 3), speed: 8, size: 0.24, life: 0.45 });
     }
     // 突進のパリィ
     if (boss.state === 'lunge' && !boss.parried) {
@@ -263,7 +288,10 @@ export class Player {
         ctx.shake(0.9);
         this.parries++;
         this.registerHit(ctx);
-        ctx.particles.emit(c, { color: 0xfff0a0, count: 40, speed: 10, size: 0.28, life: 0.6 });
+        ctx.particles.emit(c, { color: 0xfff0a0, count: 48, speed: 11, size: 0.3, life: 0.6 });
+        ctx.fx.flash(c, 0xfff0a0, 5, 0.3);
+        ctx.fx.pillar(this.pos, 0xffe066, 7, 0.9, 0.5);
+        ctx.fx.ring(this.pos, 0xfff0a0, 5, 0.5);
       }
     }
   }
@@ -282,7 +310,8 @@ export class Player {
     const target = boss.center.clone();
     const dir = target.sub(hand).normalize();
     ctx.bullets.spawn({ pos: hand, vel: dir.multiplyScalar(24), owner: 'player', kind: 2, r: 0.26, damage: 4, life: 1.5, color: 0xffa040 });
-    ctx.particles.emit(hand, { color: 0xffc080, count: 5, speed: 2, size: 0.12, life: 0.25 });
+    ctx.particles.emit(hand, { color: 0xffc080, count: 6, speed: 2, size: 0.14, life: 0.25 });
+    ctx.fx.flash(hand, 0xffa040, 0.9, 0.1);
     this.shootCd = 0.28;
     this.shootPose = 0.3;
     ctx.sfx.shoot();
@@ -397,8 +426,22 @@ export class Player {
     this.rig.update(dt);
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
+    // 刀の軌跡と火の粉（振り抜き中）
+    if (this.state === 'attack' && this.rig.weapon) {
+      const cfg = ATTACK[this.attackStep];
+      if (this.st > cfg.a0 - 0.06 && this.st < cfg.a1 + 0.06) {
+        this.group.updateMatrixWorld(true);
+        const w = this.rig.weapon;
+        const b = w.group.localToWorld(w.base.clone());
+        const t = w.group.localToWorld(w.tip.clone());
+        // 軌跡は刀身より少し外まで伸ばして派手に
+        t.sub(b).multiplyScalar(1.45).add(b);
+        ctx.fx.playerTrail.push(b, t);
+        ctx.particles.emit(t, { color: 0xff9a40, count: 2, speed: 1.5, size: 0.15, life: 0.3, drag: 3, up: 0.5 });
+      }
+    }
     // 無敵中の点滅
-    const blink = this.invuln > 0 && this.state !== 'dodge' && this.alive ? (Math.sin(this.idleT * 40) > 0 ? 0.35 : 0) : 0;
+    const blink = this.invuln > 0 && this.invuln < 2 && this.state !== 'dodge' && this.alive ? (Math.sin(this.idleT * 40) > 0 ? 0.35 : 0) : 0;
     this.rig.setFlash(Math.max(this.flash, blink));
     this.rig.setWeaponGlow(this.glow);
 

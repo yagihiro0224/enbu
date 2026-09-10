@@ -61,7 +61,8 @@ export class Bullets {
     ];
     for (let k = 0 as Kind; k < 3; k++) {
       const geo = geos[k];
-      const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+      // ブルームに乗るよう 1.0 を超える明るさで描く
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, 1.8, 1.8), toneMapped: false });
       const mesh = new THREE.InstancedMesh(geo, mat, CAP[k]);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CAP[k] * 3), 3).setUsage(THREE.DynamicDrawUsage);

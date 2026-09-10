@@ -5,12 +5,17 @@ import { Sfx } from './Audio';
 import { Bullets } from './Bullets';
 import { Particles } from './Particles';
 import { createArena, type ArenaResult } from './Arena';
-import { createChibi } from './Chibi';
+import { createFigure } from './Figure';
+import { Fx } from './Fx';
 import { Player } from './Player';
 import { Boss } from './Boss';
 import { tryLoadVrm } from './VrmRig';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const ARENA_R = 14;
 const FOV = 50;
@@ -25,7 +30,11 @@ export class Game {
   private ui: UI;
   private sfx = new Sfx();
   private bullets = new Bullets();
-  private particles = new Particles(700);
+  private particles = new Particles(900);
+  private fx = new Fx();
+  private composer: EffectComposer;
+  private bloomOn = true;
+  private lowFpsSec = 0;
   private arena: ArenaResult;
   private player: Player;
   private boss: Boss;
@@ -57,22 +66,30 @@ export class Game {
     this.scene.background = new THREE.Color(0x1a0b14);
 
     this.arena = createArena(ARENA_R);
-    this.scene.add(this.arena.group, this.bullets.group, this.particles.points);
+    this.scene.add(this.arena.group, this.bullets.group, this.particles.points, this.fx.group);
 
-    this.player = new Player(createChibi({
-      hair: 0x2a1a2e, hairAccent: 0xff5a2a, eye: 0xff7a3a, top: 0xf6f0f0, skirt: 0xd8302a, accent: 0xffb347,
-      hairStyle: 'twin', weapon: 'katana',
+    // ブルーム（発光）。重い端末では自動で切る
+    this.composer = new EffectComposer(this.renderer);
+    this.composer.addPass(new RenderPass(this.scene, this.camera));
+    this.composer.addPass(new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.75, 0.55, 0.82));
+    this.composer.addPass(new OutputPass());
+    if (new URLSearchParams(location.search).has('nobloom')) this.bloomOn = false;
+
+    this.player = new Player(createFigure({
+      hair: 0x1a1020, hairTip: 0xff4a1a, eye: 0xff6a2a, top: 0xf8f0ea, sleeve: 0xd8302a, skirt: 0xd0281e, accent: 0xffb347, socks: 0x1a1020,
+      hairStyle: 'ponytail', weapon: 'katana',
     }));
-    this.boss = new Boss(createChibi({
-      hair: 0xe8dcff, hairAccent: 0xa060ff, eye: 0xc040ff, skin: 0xfff0f4, top: 0x2a1040, skirt: 0x5a2090, accent: 0xff60d0,
+    this.boss = new Boss(createFigure({
+      hair: 0xf0e8ff, hairTip: 0xa060ff, eye: 0xc040ff, skin: 0xfff0f4, top: 0x2a1040, sleeve: 0x4a2080, skirt: 0x3a1560, accent: 0xff60d0, socks: 0x2a1040,
       hairStyle: 'long', horns: true, weapon: 'staff',
     }));
+    this.boss.attachFx(this.fx);
     this.scene.add(this.player.group, this.boss.group);
 
     this.ui = new UI(container);
     this.input = new Input(container);
     this.ctx = {
-      bullets: this.bullets, particles: this.particles, sfx: this.sfx, ui: this.ui, input: this.input,
+      bullets: this.bullets, particles: this.particles, fx: this.fx, sfx: this.sfx, ui: this.ui, input: this.input,
       arenaR: ARENA_R, time: 0, camYaw: this.camYaw, player: this.player, boss: this.boss,
       hitstop: (sec, scale = 0.05) => { if (sec >= this.slowT) { this.slowT = sec; this.slowScale = scale; } },
       shake: (a) => { this.shakeV = Math.min(1.5, this.shakeV + a); },
@@ -96,8 +113,17 @@ export class Game {
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
         this.start();
+        if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?slash=1..3 で早送り後に斬撃の途中で止める
+        const slash = Number(q.get('slash') ?? 0);
+        if (slash >= 1 && slash <= 3) {
+          this.player.invuln = 5;
+          this.player.debugAttack(slash as 1 | 2 | 3, this.ctx);
+          const frames = Number(q.get('f') ?? 14);
+          for (let i = 0; i < frames; i++) this.step(1 / 60);
+        }
       }, 300);
     }
     try {
@@ -115,6 +141,7 @@ export class Game {
     // 縦画面では縦の画角を広げて視野を確保する
     this.camera.fov = this.camera.aspect < 1 ? Math.min(78, FOV / Math.sqrt(this.camera.aspect)) : FOV;
     this.camera.updateProjectionMatrix();
+    this.composer.setSize(w, h);
     this.particles.setViewport(h * this.renderer.getPixelRatio(), this.camera.fov);
   }
 
@@ -131,6 +158,7 @@ export class Game {
     this.ui.hideResult();
     this.bullets.clear();
     this.particles.clear();
+    this.fx.clear();
     this.player.reset();
     this.boss.reset();
     this.ui.setBossHp(1);
@@ -178,9 +206,19 @@ export class Game {
     const real = Math.min(0.05, (now - this.lastFrame) / 1000);
     this.lastFrame = now;
     this.fpsAcc += real; this.fpsN++;
-    if (this.fpsAcc >= 1) { this.ui.setFps(this.fpsN / this.fpsAcc); this.fpsAcc = 0; this.fpsN = 0; }
+    if (this.fpsAcc >= 1) {
+      const fps = this.fpsN / this.fpsAcc;
+      this.ui.setFps(fps);
+      this.fpsAcc = 0; this.fpsN = 0;
+      // 3 秒続けて 35fps を下回ったらブルームを切る
+      if (this.bloomOn && this.state === 'play') {
+        this.lowFpsSec = fps < 35 ? this.lowFpsSec + 1 : 0;
+        if (this.lowFpsSec >= 3) { this.bloomOn = false; console.info('低フレームレートのためブルームを無効化'); }
+      }
+    }
     this.step(real);
-    this.renderer.render(this.scene, this.camera);
+    if (this.bloomOn) this.composer.render();
+    else this.renderer.render(this.scene, this.camera);
   }
 
   /** 実時間 real 秒ぶんゲームを進める */
@@ -210,6 +248,7 @@ export class Game {
     this.bullets.update(dt, (b) => (b.owner === 'boss' ? this.player.center : this.boss.alive ? this.boss.center : null), ARENA_R);
     if (playing) this.collide();
     this.particles.update(dt);
+    this.fx.update(dt);
 
     this.updateCamera(real, dt);
   }
@@ -226,7 +265,7 @@ export class Game {
       if (!b.active) continue;
       if (b.owner === 'boss') {
         if (!pl.alive || pl.invuln > 0 || pl.state === 'dodge') continue;
-        const d = this.distToCapsule(b.pos, pl.pos.x, pl.pos.z, pl.pos.y + 0.25, pl.pos.y + 1.35);
+        const d = this.distToCapsule(b.pos, pl.pos.x, pl.pos.z, pl.pos.y + 0.25, pl.pos.y + pl.rig.height * 0.85);
         if (d < b.r + pl.radius) {
           if (pl.takeDamage(b.damage, this.ctx, b.pos)) {
             b.active = false;
@@ -235,12 +274,14 @@ export class Game {
         }
       } else {
         if (!bo.alive) continue;
-        const d = this.distToCapsule(b.pos, bo.pos.x, bo.pos.z, bo.pos.y + 0.2, bo.pos.y + 1.7);
+        const hover = bo.rig.root.position.y;
+        const d = this.distToCapsule(b.pos, bo.pos.x, bo.pos.z, bo.pos.y + hover + 0.2, bo.pos.y + hover + bo.rig.height * 0.95);
         if (d < b.r + bo.radius) {
           const reflected = b.owner === 'reflect';
           bo.takeDamage(b.damage, reflected ? 18 : 3, this.ctx);
           b.active = false;
-          this.particles.emit(b.pos, { color: b.color, count: reflected ? 16 : 6, speed: reflected ? 7 : 3, size: 0.2, life: 0.35 });
+          this.particles.emit(b.pos, { color: b.color, count: reflected ? 20 : 8, speed: reflected ? 8 : 3, size: 0.22, life: 0.35 });
+          this.fx.flash(b.pos, b.color, reflected ? 2.4 : 1.2, 0.15);
           pl.registerHit(this.ctx);
           if (reflected) { this.ctx.shake(0.3); this.ctx.hitstop(0.04, 0.1); this.sfx.hit(); }
         }
@@ -252,7 +293,14 @@ export class Game {
     const pl = this.player, bo = this.boss;
     let desired: THREE.Vector3;
     let look: THREE.Vector3;
-    if (this.state === 'title') {
+    const debugCam = new URLSearchParams(location.search).get('cam');
+    if (debugCam === 'front' || debugCam === 'boss') {
+      // 動作確認用: キャラの正面アップ
+      const t = debugCam === 'front' ? pl : bo;
+      const yaw = t.heading;
+      desired = new THREE.Vector3(t.pos.x + Math.sin(yaw) * 3.2, t.pos.y + 1.5, t.pos.z + Math.cos(yaw) * 3.2);
+      look = new THREE.Vector3(t.pos.x, t.pos.y + 1.0, t.pos.z);
+    } else if (this.state === 'title') {
       const a = this.time * 0.15;
       desired = new THREE.Vector3(Math.sin(a) * 11, 3.5, Math.cos(a) * 11);
       look = new THREE.Vector3(0, 1.2, 0);

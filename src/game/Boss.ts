@@ -4,6 +4,7 @@ import { Animator, poseFloat, poseCast, poseLunge, poseHit, poseDead, type Pose 
 import { blobShadow } from './Toon';
 import { clamp, damp, dampAngle, rand, randInt, TAU } from './util';
 import type { Ctx } from './Ctx';
+import type { Fx } from './Fx';
 
 type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead';
 type Pattern = Generator<number, void, unknown>;
@@ -36,11 +37,18 @@ export class Boss {
   private anim: Animator;
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
+  private circle: THREE.Mesh | null = null;
 
   constructor(public rig: Rig) {
     this.group.add(rig.root);
     this.group.add(blobShadow(0.7));
     this.anim = new Animator(rig);
+  }
+
+  /** 足元の魔法陣を用意する */
+  attachFx(fx: Fx) {
+    this.circle = fx.magicCircle(3.6);
+    this.group.add(this.circle);
   }
 
   reset() {
@@ -65,7 +73,7 @@ export class Boss {
     return this.state !== 'dead';
   }
   get center(): THREE.Vector3 {
-    return this.tmp2.set(this.pos.x, this.pos.y + 1.05, this.pos.z);
+    return this.tmp2.set(this.pos.x, this.pos.y + this.rig.root.position.y + this.rig.height * 0.55, this.pos.z);
   }
   private get speedMul() {
     return 1 + (this.phase - 1) * 0.18;
@@ -116,7 +124,10 @@ export class Boss {
     ctx.shake(0.8);
     ctx.hitstop(0.5, 0.25);
     ctx.ui.showBanner(p === 2 ? '第二形態 ─ 憤怒' : '最終形態 ─ 慟哭', '#ff70d0', 1.6);
-    ctx.particles.emit(this.center, { color: 0xc060ff, count: 60, speed: 9, size: 0.3, life: 0.9 });
+    ctx.particles.emit(this.center, { color: 0xc060ff, count: 70, speed: 10, size: 0.32, life: 0.9 });
+    ctx.fx.pillar(this.pos, 0xc060ff, 9, 1.2, 0.9);
+    ctx.fx.ring(this.pos, 0xff70d0, 9, 0.8);
+    ctx.fx.flash(this.center, 0xe0a0ff, 6, 0.4);
   }
 
   private clearBullets(ctx: Ctx) {
@@ -134,6 +145,9 @@ export class Boss {
     this.gen = null;
     this.vel.set(0, 0, 0);
     this.clearBullets(ctx);
+    ctx.fx.pillar(this.pos, 0xffd0ff, 12, 1.4, 1.4);
+    ctx.fx.ring(this.pos, 0xffffff, 12, 1.0);
+    ctx.fx.flash(this.center, 0xffffff, 8, 0.6);
     ctx.onBossDead();
   }
 
@@ -163,6 +177,7 @@ export class Boss {
         const a = off + (j / n) * TAU;
         this.fire(ctx, c, this.tmp.set(Math.sin(a), Math.sin(j * 1.7 + i) * 0.06, Math.cos(a)), 5.8, { color: 0xff5fb0, r: 0.27, damage: 8 });
       }
+      ctx.fx.flash(c, 0xff80d0, 2.2, 0.2);
       ctx.sfx.bossShoot();
       yield 0.32;
     }
@@ -183,6 +198,7 @@ export class Boss {
         const a = baseA + (i / (k - 1) - 0.5) * spread;
         this.fire(ctx, c, this.tmp.set(Math.sin(a), -0.02, Math.cos(a)), 12, { kind: 1, r: 0.17, color: 0xc070ff, damage: 10, life: 5 });
       }
+      ctx.fx.flash(c, 0xc070ff, 1.6, 0.15);
       ctx.sfx.bossShoot();
       yield 0.42;
     }
@@ -283,12 +299,14 @@ export class Boss {
     this.st = 0;
     this.lungeHit = false;
     ctx.sfx.dodge();
+    ctx.fx.ring(this.pos, 0xff40a0, 2.2, 0.3);
     yield 0.7;
     this.state = 'idle';
   }
 
   private *teleport(ctx: Ctx): Pattern {
     ctx.particles.emit(this.center, { color: 0xc060ff, count: 30, speed: 4, size: 0.25, life: 0.5 });
+    ctx.fx.ring(this.pos, 0xc060ff, 2.5, 0.3);
     ctx.sfx.teleport();
     this.rig.root.visible = false;
     yield 0.25;
@@ -302,6 +320,8 @@ export class Boss {
     this.vel.set(0, 0, 0);
     this.rig.root.visible = true;
     ctx.particles.emit(this.center, { color: 0xc060ff, count: 30, speed: 4, size: 0.25, life: 0.5 });
+    ctx.fx.flash(this.center, 0xd080ff, 3, 0.25);
+    ctx.fx.ring(this.pos, 0xc060ff, 2.5, 0.3);
     yield 0.3;
   }
 
@@ -423,6 +443,16 @@ export class Boss {
     this.rig.root.rotation.y = this.heading;
     this.rig.setFlash(this.flash);
     this.rig.setWeaponGlow(this.glow + (this.phase >= 3 ? 0.5 : 0));
+    // 魔法陣
+    if (this.circle) {
+      const casting = this.state === 'cast' || this.state === 'charge' || this.state === 'phase';
+      this.circle.visible = casting && this.rig.root.visible;
+      if (casting) {
+        this.circle.rotation.z += dt * (this.state === 'charge' ? 3 : 1.2);
+        const s = 1 + Math.sin(this.t * 8) * 0.06 + (this.state === 'phase' ? 0.6 : 0);
+        this.circle.scale.setScalar(s);
+      }
+    }
 
     if (this.state === 'dead') {
       // 消滅演出

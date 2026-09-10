@@ -50,7 +50,7 @@ export class Particles {
           float d = length(gl_PointCoord - 0.5) * 2.0;
           if (d > 1.0) discard;
           float a = (1.0 - d * d) * vAlpha;
-          gl_FragColor = vec4(vColor * a, a);
+          gl_FragColor = vec4(vColor * a * 1.7, a);
         }`,
       transparent: true,
       depthWrite: false,

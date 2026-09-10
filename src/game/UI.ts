@@ -160,6 +160,8 @@ export class UI {
   }
 
   hideTitle() { this.title.classList.add('hidden'); }
+  /** 動作確認用: フェードなしで即座に消す */
+  hideTitleNow() { this.title.style.display = 'none'; }
   showResult(win: boolean, seconds: number, maxCombo: number, parries: number) {
     this.resultTitle.textContent = win ? '浄化完了' : '散華';
     this.resultTitle.className = win ? 'res-win' : 'res-lose';

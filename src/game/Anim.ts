@@ -21,11 +21,13 @@ export class Animator {
   private hipsY = 0;
   private hairSway = 0;
   private hairBase: number[];
+  private hairBaseX: number[];
   private t = 0;
 
   constructor(private rig: Rig) {
     for (const b of BONES) this.cur.set(b, new THREE.Vector3());
     this.hairBase = rig.hairBones.map((h) => h.rotation.z);
+    this.hairBaseX = rig.hairBones.map((h) => h.rotation.x);
   }
 
   /** pose へ rate の速さで近づける。velForward は髪をなびかせる用（正面方向速度） */
@@ -41,10 +43,10 @@ export class Animator {
     }
     this.hipsY = damp(this.hipsY, pose.hipsY ?? 0, rate, dt);
     this.rig.hips.position.y = this.rig.hipsHeight + this.hipsY;
-    // 髪の揺れ: 前進すると後ろへなびき、待機中は微かに揺れる
-    this.hairSway = damp(this.hairSway, clamp(-velForward * 0.07, -0.55, 0.55) + Math.sin(this.t * 2.5) * 0.06, 6, dt);
+    // 髪の揺れ: 前進すると後ろへなびき（x 正で -Y の先端が -Z へ）、待機中は微かに揺れる
+    this.hairSway = damp(this.hairSway, clamp(velForward * 0.07, -0.55, 0.55) + Math.sin(this.t * 2.5) * 0.06, 6, dt);
     this.rig.hairBones.forEach((h, i) => {
-      h.rotation.x = this.hairSway;
+      h.rotation.x = this.hairBaseX[i] + this.hairSway;
       h.rotation.z = this.hairBase[i] + Math.sin(this.t * 3 + i) * 0.03;
     });
   }

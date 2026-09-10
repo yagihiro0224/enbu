@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import type { Rig } from './Rig';
-import { createKatana } from './Chibi';
+import { createKatana } from './Weapons';
 
 /**
  * public/models/player.vrm があれば読み込んで Rig にする。無ければ null。
@@ -51,7 +51,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     }
   });
 
-  const katana = createKatana(undefined, undefined, 1.0);
+  const katana = createKatana();
   get('rightHand').add(katana.group);
 
   return {
@@ -68,6 +68,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     upperLegR: get('rightUpperLeg'),
     lowerLegR: get('rightLowerLeg'),
     handR: get('rightHand'),
+    weapon: katana,
     hairBones: [],
     hipsHeight: hips.position.y,
     height: 1.6,
@@ -78,7 +79,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
       }
     },
     setWeaponGlow(v) {
-      katana.glowMat.emissiveIntensity = v * 1.6;
+      katana.setGlow(v);
     },
     update(dt) {
       vrm.update(dt);
