@@ -3,5 +3,3 @@ dist
 .DS_Store
 *.log
 .shots
-# VRoid のサンプルモデルは再配布不可のためコミットしない（自作モデルなら外してよい）
-public/models/player.vrm
