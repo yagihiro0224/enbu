@@ -308,7 +308,8 @@ export class Player {
     const yaw = ctx.camYaw;
     const mx = input.move.x, my = input.move.y;
     this.moveMag = clamp(Math.hypot(mx, my), 0, 1);
-    this.moveDir.set(Math.sin(yaw) * my + Math.cos(yaw) * mx, 0, Math.cos(yaw) * my - Math.sin(yaw) * mx);
+    // 前 = (sin yaw, 0, cos yaw)、右 = 前 × 上 = (-cos yaw, 0, sin yaw)
+    this.moveDir.set(Math.sin(yaw) * my - Math.cos(yaw) * mx, 0, Math.cos(yaw) * my + Math.sin(yaw) * mx);
 
     const canAct = this.alive && this.state !== 'hit';
     const inFree = this.state === 'idle' || this.state === 'run';
