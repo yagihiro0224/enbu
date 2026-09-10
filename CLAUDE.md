@@ -108,6 +108,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
    ヘッドレス確認は `?nobitmap&t=1.6&cam=front`（VRM の読み込みは早送りより先に await する構造）
    注意: VRoidStudio フォルダには unins000.exe（アンインストーラ）が同居している。起動は必ず VRoidStudio.exe をフルパスで
 
+## 2026-09-11 の変更（殺し屋ゲームへの移行を炎舞のコード上で開始）
+
+- 主人公名「深川まひろ」。ボタン「斬」→「打」。連打で 5 段格闘コンボ（Player.ts の ATTACK と Anim.ts の poseAttack）:
+  1 ジャブ、2 ナイフのフック、3 アッパー、4 ハイキック、5 ジャンプ回し蹴り（hipsYaw で腰を一回転）
+- 刀は廃止。Weapons.ts の createKnife（逆手持ち。刃は肘側 +X、前腕の少し下）
+- ポーズは poseSeq([[進行度, Pose], ...], p) のキーフレーム補間で作る。構えは GUARD 定数
+- 動作確認: `?slash=1..5&f=フレーム&cam=side2`（side2 = キャラの右側から。蹴り脚が見える）。`?novrm` でプリミティブ体型
+- ユーザー決定: 素手は格闘中心、銃を拾えば銃中心、ナイフを拾えばナイフ中心（武器拾得でスタイル切替）。未実装
+
 ## 別の PC で始める手順
 
 1. `git clone https://github.com/yagihiro0224/enbu.git && cd enbu && npm install`
