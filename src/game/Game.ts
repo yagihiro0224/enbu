@@ -110,10 +110,19 @@ export class Game {
     // 動作確認用: ?autostart で即開始、?t=秒 でその時間まで早送り、?bot で自動操作
     const q = new URLSearchParams(location.search);
     // ?model=名前 で public/models/<名前>.glb（骨なしメッシュ）を自動リグして主人公にする
+    // ヘッドレス Chrome の仮想時間では createImageBitmap が返ってこないので、?nobitmap で無効化できるようにする
+    if (q.has('nobitmap')) (window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined;
+    // public/models/player.vrm があれば主人公を VRM にする（早送りより先に済ませる）
     const model = q.get('model');
+    if (!model) {
+      try {
+        const rig = await tryLoadVrm(`${import.meta.env.BASE_URL}models/player.vrm`);
+        if (rig) this.player.setRig(rig);
+      } catch (e) {
+        console.warn('VRM の読み込みに失敗。標準キャラを使います', e);
+      }
+    }
     if (model) {
-      // ヘッドレス Chrome の仮想時間では createImageBitmap が返ってこないので、?nobitmap で無効化できるようにする
-      if (q.has('nobitmap')) (window as unknown as { createImageBitmap?: unknown }).createImageBitmap = undefined;
       try {
         const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
         const { autoRig } = await import('./AutoRig');
@@ -142,12 +151,6 @@ export class Game {
           for (let i = 0; i < frames; i++) this.step(1 / 60);
         }
       }, 300);
-    }
-    try {
-      const rig = await tryLoadVrm(`${import.meta.env.BASE_URL}models/player.vrm`);
-      if (rig) this.player.setRig(rig);
-    } catch (e) {
-      console.warn('VRM の読み込みに失敗。ちびキャラを使います', e);
     }
   }
 

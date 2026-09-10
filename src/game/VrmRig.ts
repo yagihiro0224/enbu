@@ -22,6 +22,9 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
   const gltf = await loader.loadAsync(url);
   const vrm = gltf.userData.vrm as VRM | undefined;
   if (!vrm) return null;
+  let tris = 0;
+  gltf.scene.traverse((o) => { const m = o as THREE.Mesh; if (m.isMesh) tris += (m.geometry.index ? m.geometry.index.count : m.geometry.attributes.position.count) / 3; });
+  console.info(`VRM loaded: version=${vrm.meta.metaVersion} tris=${Math.round(tris)}`);
   VRMUtils.removeUnnecessaryVertices(gltf.scene);
   VRMUtils.combineSkeletons(gltf.scene);
   VRMUtils.rotateVRM0(vrm);

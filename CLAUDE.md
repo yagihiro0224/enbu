@@ -101,7 +101,12 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 5. ゲームに入れる: `public/models/<名前>.glb` に置き、`?model=<名前>` で起動すると AutoRig.ts が比率ベースで骨とウェイトを付けて
    主人公に差し替える（Mixamo 不要）。A ポーズ前提。ヘッドレス確認は `?model=assassin&nobitmap&t=1.6&cam=front`
    （仮想時間下では createImageBitmap が返らないので nobitmap が要る）
-6. 現在 `public/models/assassin.glb` が殺し屋の女の子の主人公モデル
+6. 現在 `public/models/assassin.glb` が殺し屋の女の子の AI 生成モデル（ユーザー評価は「形が変」。単画像 3D の限界）
+7. **VRM 経路は 2026-09-11 に実動作を確認済み**。VRoid Studio 2.3.0 を winget（pixivInc.VRoidStudio、ユーザー単位）で導入。
+   `public/models/player.vrm` を置くと起動時に読み込み、手続きアニメがそのまま乗る（VRM 1.0、3.5 万ポリゴンで確認）。
+   VRoid のサンプルモデルは再配布不可なので `.gitignore` に入れてある。自作モデルなら外してコミットしてよい。
+   ヘッドレス確認は `?nobitmap&t=1.6&cam=front`（VRM の読み込みは早送りより先に await する構造）
+   注意: VRoidStudio フォルダには unins000.exe（アンインストーラ）が同居している。起動は必ず VRoidStudio.exe をフルパスで
 
 ## 別の PC で始める手順
 
