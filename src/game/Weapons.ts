@@ -45,6 +45,7 @@ export function createKnife(accent?: THREE.Material, dark?: THREE.Material): Wea
   const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), accentMat);
   pommel.position.set(-0.07, -0.04, 0);
   w.add(pommel);
+  w.scale.setScalar(1.4);
   return {
     group: w,
     base: new THREE.Vector3(0.05, -0.045, 0),

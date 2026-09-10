@@ -45,6 +45,8 @@ export class Game {
   private slowT = 0;
   private slowScale = 1;
   private shakeV = 0;
+  private punchV = 0;
+  private baseFov = FOV;
   private camPos = new THREE.Vector3(0, 4, 12);
   private camLook = new THREE.Vector3(0, 1, 0);
   private camYaw = Math.PI;
@@ -93,6 +95,7 @@ export class Game {
       arenaR: ARENA_R, time: 0, camYaw: this.camYaw, player: this.player, boss: this.boss,
       hitstop: (sec, scale = 0.05) => { if (sec >= this.slowT) { this.slowT = sec; this.slowScale = scale; } },
       shake: (a) => { this.shakeV = Math.min(1.5, this.shakeV + a); },
+      punch: (a) => { this.punchV = Math.min(1.2, this.punchV + a); },
       onBossDead: () => this.finish(true),
       onPlayerDead: () => this.finish(false),
     };
@@ -142,7 +145,32 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
-        // ?slash=1..3 で早送り後に斬撃の途中で止める
+        // ?combo で 5 段コンボを 30fps の連続コマにして画面に貼る（cols 列 × rows 行）
+        if (q.has('combo')) {
+          this.player.invuln = 9;
+          const cols = 8, rows = 7, tw = 240, th = 135;
+          const strip = document.createElement('canvas');
+          strip.width = cols * tw; strip.height = rows * th;
+          const g = strip.getContext('2d')!;
+          g.fillStyle = '#000'; g.fillRect(0, 0, strip.width, strip.height);
+          const src = this.renderer.domElement;
+          let tile = 0, done = false, frame = 0;
+          while (tile < cols * rows && frame < 400) {
+            this.step(1 / 60);
+            if (!done) done = this.player.debugComboTick(this.ctx);
+            if (frame % 2 === 0) {
+              this.renderer.render(this.scene, this.camera);
+              g.drawImage(src, (tile % cols) * tw, Math.floor(tile / cols) * th, tw, th);
+              tile++;
+            }
+            frame++;
+            if (done && frame % 2 === 0 && tile > 0) { /* 終了後も数コマ撮る */ if (this.player.state !== 'attack') break; }
+          }
+          strip.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:auto;z-index:99;background:#000';
+          document.body.appendChild(strip);
+          console.info(`combo strip: ${tile} tiles`);
+        }
+        // ?slash=1..5 で早送り後に攻撃の途中で止める
         const slash = Number(q.get('slash') ?? 0);
         if (slash >= 1 && slash <= 5) {
           this.player.invuln = 5;
@@ -161,7 +189,8 @@ export class Game {
     this.renderer.setSize(w, h);
     this.camera.aspect = w / h;
     // 縦画面では縦の画角を広げて視野を確保する
-    this.camera.fov = this.camera.aspect < 1 ? Math.min(78, FOV / Math.sqrt(this.camera.aspect)) : FOV;
+    this.baseFov = this.camera.aspect < 1 ? Math.min(78, FOV / Math.sqrt(this.camera.aspect)) : FOV;
+    this.camera.fov = this.baseFov;
     this.camera.updateProjectionMatrix();
     this.composer.setSize(w, h);
     this.particles.setViewport(h * this.renderer.getPixelRatio(), this.camera.fov);
@@ -347,6 +376,10 @@ export class Game {
     this.camLook.z = damp(this.camLook.z, look.z, 8, real);
     this.shakeV = Math.max(0, this.shakeV - real * 3);
     const s = this.shakeV * this.shakeV * 0.35;
+    // 打撃の寄り: 画角を一瞬狭めて戻す
+    this.punchV = Math.max(0, this.punchV - real * 5);
+    const fov = this.baseFov * (1 - this.punchV * 0.09);
+    if (Math.abs(fov - this.camera.fov) > 0.01) { this.camera.fov = fov; this.camera.updateProjectionMatrix(); }
     this.camera.position.set(this.camPos.x + rand(-s, s), Math.max(0.8, this.camPos.y + rand(-s, s)), this.camPos.z + rand(-s, s));
     this.camera.lookAt(this.camLook);
     this.camYaw = Math.atan2(this.camLook.x - this.camPos.x, this.camLook.z - this.camPos.z);

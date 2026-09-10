@@ -25,6 +25,8 @@ export interface Ctx {
   /** ヒットストップ／スロー。sec 秒だけ時間の進みを scale 倍にする */
   hitstop(sec: number, scale?: number): void;
   shake(amount: number): void;
+  /** カメラの寄り（画角を一瞬狭める）。打撃の重さ演出 */
+  punch(amount: number): void;
   onBossDead(): void;
   onPlayerDead(): void;
 }

@@ -11,11 +11,11 @@ type Step = 1 | 2 | 3 | 4 | 5;
 interface AttackCfg { total: number; a0: number; a1: number; chain: number; dmg: number; poise: number; lunge: number; reach: number; kind: 'punch' | 'knife' | 'kick' | 'spin' }
 /** 格闘 5 段: ジャブ、フック（ナイフ）、アッパー、ハイキック、ジャンプ回し蹴り */
 const ATTACK: Record<Step, AttackCfg> = {
-  1: { total: 0.3, a0: 0.09, a1: 0.16, chain: 0.15, dmg: 6, poise: 8, lunge: 4.0, reach: 1.8, kind: 'punch' },
-  2: { total: 0.36, a0: 0.12, a1: 0.2, chain: 0.2, dmg: 9, poise: 12, lunge: 4.0, reach: 1.9, kind: 'knife' },
-  3: { total: 0.4, a0: 0.15, a1: 0.24, chain: 0.24, dmg: 11, poise: 16, lunge: 4.5, reach: 1.8, kind: 'punch' },
-  4: { total: 0.46, a0: 0.17, a1: 0.28, chain: 0.3, dmg: 13, poise: 18, lunge: 4.5, reach: 2.3, kind: 'kick' },
-  5: { total: 0.8, a0: 0.4, a1: 0.52, chain: 0.8, dmg: 26, poise: 44, lunge: 6.0, reach: 2.7, kind: 'spin' },
+  1: { total: 0.32, a0: 0.1, a1: 0.16, chain: 0.17, dmg: 6, poise: 8, lunge: 5.5, reach: 1.9, kind: 'punch' },
+  2: { total: 0.4, a0: 0.15, a1: 0.22, chain: 0.23, dmg: 9, poise: 12, lunge: 5.5, reach: 2.0, kind: 'knife' },
+  3: { total: 0.44, a0: 0.18, a1: 0.26, chain: 0.27, dmg: 11, poise: 16, lunge: 6.0, reach: 1.9, kind: 'punch' },
+  4: { total: 0.5, a0: 0.2, a1: 0.3, chain: 0.32, dmg: 13, poise: 18, lunge: 5.0, reach: 2.4, kind: 'kick' },
+  5: { total: 0.9, a0: 0.42, a1: 0.58, chain: 0.9, dmg: 26, poise: 44, lunge: 7.5, reach: 2.8, kind: 'spin' },
 };
 const SPEED = 6.5;
 const DODGE_DUR = 0.34;
@@ -140,6 +140,23 @@ export class Player {
     this.startAttack(step, ctx);
   }
 
+  /** 動作確認用: 毎フレーム呼ぶと 5 段を最速で繋ぐ。終わったら true */
+  debugComboTick(ctx: Ctx): boolean {
+    if (this.state === 'idle' || this.state === 'run') {
+      if (this.attackStep === 5 && this.comboDone) return true;
+      this.comboDone = false;
+      this.startAttack(1, ctx);
+      return false;
+    }
+    if (this.state === 'attack') {
+      const cfg = ATTACK[this.attackStep];
+      if (this.attackStep < 5 && this.st >= cfg.chain) this.startAttack((this.attackStep + 1) as Step, ctx);
+      else if (this.attackStep === 5 && this.st >= cfg.total - 0.02) this.comboDone = true;
+    }
+    return false;
+  }
+  private comboDone = false;
+
   private startAttack(step: Step, ctx: Ctx) {
     this.state = 'attack';
     this.st = 0;
@@ -151,10 +168,17 @@ export class Player {
     const dist = Math.hypot(dx, dz);
     if (boss.alive && dist < 8) this.heading = Math.atan2(dx, dz);
     else if (this.moveMag > 0.2) this.heading = Math.atan2(this.moveDir.x, this.moveDir.z);
-    const kind = ATTACK[step].kind;
-    if (kind === 'knife') ctx.sfx.slash(2);
-    else ctx.sfx.whoosh(kind === 'spin' ? 0.7 : kind === 'kick' ? 0.85 : 1.1);
+    const cfg = ATTACK[step];
+    // 間合いが遠ければ踏み込みで詰める（最大 5.5m）
+    this.lungeBoost = 0;
+    if (boss.alive && dist > cfg.reach + boss.radius && dist < 5.5) {
+      this.lungeBoost = Math.min(14, (dist - cfg.reach - boss.radius + 0.4) / Math.max(0.08, cfg.a0));
+    }
+    if (cfg.kind === 'knife') ctx.sfx.slash(2);
+    else ctx.sfx.whoosh(cfg.kind === 'spin' ? 0.7 : cfg.kind === 'kick' ? 0.85 : 1.1);
+    ctx.punch(cfg.kind === 'spin' ? 0.6 : 0.25);
   }
+  private lungeBoost = 0;
 
   private doHit(ctx: Ctx) {
     const cfg = ATTACK[this.attackStep];
@@ -177,8 +201,9 @@ export class Player {
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
       if (dist < cfg.reach + boss.radius && dot > Math.cos(1.2)) {
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
-        ctx.hitstop(heavy ? 0.1 : 0.05, 0.05);
-        ctx.shake(heavy ? 0.7 : 0.3);
+        ctx.hitstop(kind === 'spin' ? 0.16 : kind === 'kick' ? 0.1 : 0.065, 0.04);
+        ctx.shake(kind === 'spin' ? 0.9 : kind === 'kick' ? 0.55 : 0.38);
+        ctx.punch(kind === 'spin' ? 1 : 0.5);
         const bc = boss.center.clone();
         ctx.particles.emit(bc, { color: 0xffb060, count: heavy ? 36 : 14, speed: heavy ? 11 : 6, size: 0.22, life: 0.45 });
         ctx.particles.emit(bc, { color: 0xff5a2a, count: heavy ? 20 : 6, speed: 4, size: 0.28, life: 0.35, up: 2 });
@@ -368,7 +393,7 @@ export class Player {
     } else if (this.state === 'attack') {
       const cfg = ATTACK[this.attackStep];
       const fwd = this.forward(this.tmp);
-      const lungeV = this.st < cfg.a1 ? cfg.lunge : 0;
+      const lungeV = this.st < cfg.a0 ? cfg.lunge + this.lungeBoost : this.st < cfg.a1 ? cfg.lunge : 0;
       this.vel.x = damp(this.vel.x, fwd.x * lungeV, 10, dt);
       this.vel.z = damp(this.vel.z, fwd.z * lungeV, 10, dt);
       if (this.st >= cfg.a0 && !this.hitDone) {
@@ -422,7 +447,7 @@ export class Player {
     let rate = 14;
     switch (this.state) {
       case 'run': pose = poseRun(this.runCycle, this.moveMag); break;
-      case 'attack': pose = poseAttack(this.attackStep, this.st / ATTACK[this.attackStep].total); rate = 24; break;
+      case 'attack': pose = poseAttack(this.attackStep, this.st / ATTACK[this.attackStep].total); rate = 50; break;
       case 'dodge': pose = poseDodge(); rate = 18; break;
       case 'parry': pose = poseParry(); rate = 26; break;
       case 'hit': pose = poseHit(); rate = 18; break;
@@ -451,9 +476,16 @@ export class Player {
         } else if (cfg.kind === 'kick' || cfg.kind === 'spin') {
           const leg = this.rig.lowerLegR;
           const b = leg.localToWorld(new THREE.Vector3(0, 0, 0));
-          const t = leg.localToWorld(new THREE.Vector3(0, -this.rig.height * 0.3, 0));
+          const t = leg.localToWorld(new THREE.Vector3(0, -this.rig.height * 0.34, 0));
           ctx.fx.playerTrail.push(b, t);
-          ctx.particles.emit(t, { color: 0xffc060, count: 2, speed: 1.5, size: 0.14, life: 0.25, drag: 3 });
+          ctx.particles.emit(t, { color: 0xffc060, count: 3, speed: 1.5, size: 0.14, life: 0.25, drag: 3 });
+        } else {
+          // 拳: 左の前腕（肘→拳）
+          const arm = this.rig.lowerArmL;
+          const b = arm.localToWorld(new THREE.Vector3(0, 0, 0));
+          const t = arm.localToWorld(new THREE.Vector3(this.rig.height * 0.2, 0, 0));
+          ctx.fx.playerTrail.push(b, t);
+          ctx.particles.emit(t, { color: 0xffd0a0, count: 2, speed: 1.2, size: 0.12, life: 0.2, drag: 3 });
         }
       }
     }
