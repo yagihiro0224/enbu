@@ -14,6 +14,7 @@ import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
+import { Ranking, cleanName, type Entry } from './Rank';
 import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
@@ -55,6 +56,9 @@ export class Game {
   private charHp: Record<CharId, number> = { mahiro: 100, chisato: 100 };
   /** 合成 BGM か、public/audio の mp3 のどちらか */
   private music: Music | Bgm | null = null;
+  private ranking = new Ranking();
+  /** 直前に記録したスコア。リザルトで自分の行を強調するのに使う */
+  private myEntry: Entry | null = null;
   /** 置かれている mp3 を調べる非同期処理。起動は止めない */
   private bgmProbe: Promise<string[] | null> = findBgmFiles();
   private musicPending = false;
@@ -139,6 +143,11 @@ export class Game {
     // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
     this.ui.onGesture = () => { this.ensureMusic(); this.setMusicLv(0); };
     this.ui.onMusicToggle = (on) => this.music?.setMuted(!on);
+    // 名前とランキング
+    this.ui.setName(this.ranking.name);
+    this.ui.onName = (v) => { this.ranking.name = v; };
+    this.ui.onRankOpen = () => void this.openRanking();
+    this.ui.onShare = () => void this.share();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
@@ -267,6 +276,20 @@ export class Game {
           `peak=${peak.toFixed(3)} rms=${Math.sqrt(sum / d.length).toFixed(4)}`
         );
       }
+    }
+    // ?rankdemo でランキング画面に見本を出す（見た目の確認用。記録は保存しない）
+    if (q.has('rankdemo')) {
+      const names = ['まひろ', 'ちさと', 'ヒロ', 'とても長い名前のひと', 'K', 'なな', 'ぼす'];
+      const demo = names.map((name, i) => ({
+        name,
+        score: 98_000_000 - i * 13_400_000,
+        rank: ['神人間', '鬼人間', '上級者人間', '一般人人間', '下手人間'][Math.min(4, i)],
+        char: i % 2 ? '杉本ちさと' : '深川まひろ',
+        seconds: 48 + i * 7.3,
+        combo: 60 - i * 5,
+        at: i === 2 ? 1 : 1000 + i,
+      }));
+      this.ui.showRankBoard(demo, 'みんなのランキング', 1);
     }
     if (q.has('bot')) this.input.bot = true;
     // ?hittest 単体ならタイトル画面の状態を調べる
@@ -422,7 +445,7 @@ export class Game {
 
   /** 各ボタンの中心に届く要素を調べて console に出す（?hittest） */
   private hitTest() {
-    const names = ['#swap', '#music', '#b-attack', '#b-dodge', '#b-parry', '#startbtn'];
+    const names = ['#swap', '#music', '#b-attack', '#b-dodge', '#b-parry', '#startbtn', '#pname', '#rankbtn'];
     console.info(`hittest viewport: ${innerWidth}x${innerHeight}`);
     for (const sel of names) {
       const el = document.querySelector(sel) as HTMLElement | null;
@@ -435,6 +458,58 @@ export class Game {
       const owner = top?.closest('[id]') as HTMLElement | null;
       const hit = owner?.id === el.id;
       console.info(`hittest ${sel}: ${hit ? 'OK' : 'NG'} 手前は #${owner?.id ?? '不明'}`);
+    }
+  }
+
+  /** クリアしたスコアをランキングに登録し、リザルトに順位を出す */
+  private async submitScore() {
+    if (!this.score) return;
+    const entry: Entry = {
+      name: cleanName(this.ui.enteredName || this.ranking.name),
+      score: this.score.total,
+      rank: this.score.rank.name,
+      char: CHARS[this.current].name,
+      seconds: this.playTime,
+      combo: this.player.maxCombo,
+      at: Date.now(),
+    };
+    this.myEntry = entry;
+    this.ranking.addLocal(entry);
+    // みんなのランキングが使えるなら送る。失敗したら端末内の記録を出す
+    const shared = await this.ranking.submitShared(entry);
+    this.ui.setResultRanking(shared ?? this.ranking.local(), entry.at);
+  }
+
+  /** ランキング画面を開く */
+  private async openRanking() {
+    const meAt = this.myEntry?.at ?? 0;
+    const local = this.ranking.local();
+    if (!this.ranking.shared) {
+      this.ui.showRankBoard(local, 'この端末に残っている記録です', meAt);
+      return;
+    }
+    this.ui.showRankBoard(local, '読み込み中…', meAt);
+    const shared = await this.ranking.fetchShared();
+    this.ui.showRankBoard(shared ?? local, shared ? 'みんなのランキング' : '通信できないので、この端末の記録を出しています', meAt);
+  }
+
+  /** 結果を共有する。共有機能が無ければクリップボードへ写す */
+  private async share() {
+    const e = this.myEntry;
+    const text = e
+      ? `炎舞 -ENBU- で ${e.score.toLocaleString()} 点（${e.rank}）を出した。${e.char}／${e.seconds.toFixed(1)}秒`
+      : '炎舞 -ENBU- で遊んでみて';
+    const url = location.origin + location.pathname;
+    try {
+      const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+      if (nav.share) {
+        await nav.share({ title: '炎舞 -ENBU-', text, url });
+        return;
+      }
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      this.ui.showBanner('コピーしました', '#ffd6a0', 1.2);
+    } catch {
+      this.ui.showBanner('共有できませんでした', '#ffa0a0', 1.2);
     }
   }
 
@@ -535,6 +610,8 @@ export class Game {
       seconds: this.playTime,
       maxCombo: this.player.maxCombo,
     });
+    // 勝ったときだけランキングに載せる
+    if (win) void this.submitScore();
     if (win) {
       this.sfx.win();
       this.ui.showBanner('浄化', '#ffe08a', 2);

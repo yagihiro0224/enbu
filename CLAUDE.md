@@ -335,3 +335,18 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 敵の HP ゲージは中央寄せをやめて**右寄せ**（`#bhp-wrap` を right 指定、text-align: right）。
   左上の主人公のゲージと左の交代ボタンに被らないようにするため。上端は ♪ ボタンの下に来るよう 46px 下げてある
 - ボスの体力は 2026-09-12 に 800 へ戻した。この難易度はその前提
+
+## ランキングと名前入力（2026-09-12）
+
+- `Rank.ts` が記録の保存と送信を持つ。**端末内（localStorage）は常に動き、共有サーバーは任意**
+  - 名前 `enbu.name`、記録 `enbu.rank`（上位 100 件）。名前は `cleanName()` で制御文字を落として 12 文字に切る
+  - 共有を有効にするには `RANK_ENDPOINT` に URL を入れる。**検証は `?rank=<URL>` で書き換えずに試せる**
+- サーバーは `server/rank-worker.js`（Cloudflare Workers + KV）。手順は `server/README.md`。
+  GET は上位を返し、POST は 1 件足して更新後の上位と順位を返す。同じ名前は最高記録 3 件までに絞っている
+- **点数はブラウザが計算して送るので偽装できる**。友達うちで遊ぶ前提の作り。README にもそう書いた
+- 画面: タイトルに名前入力（`#pname`）と「ランキング」（`#rankbtn`）、リザルトに上位 5 件（`#res-rankbox`）と「結果を共有」。
+  ランキング画面は `#rankboard` / `#rank-panel`。**`#res-panel` と id を分けること**（最初に同じ id を 2 つ置いてしまった）
+- 記録するのは**勝ったときだけ**。負けは載せない
+- 共有は `navigator.share` があればそれ、無ければクリップボードへ写して「コピーしました」と出す
+- **検証は `?rankdemo`**（見本の表を出す。保存はしない）と `?hittest`（名前欄とランキングのボタンも見る）
+- ついでに直した: **タイトル中に ♪ ボタンが押せなかった**。オーバーレイが上に乗っていたので `#music` に z-index 5 を付けた

@@ -84,7 +84,7 @@ const CSS = `
 /* 戦闘用の HUD はプレイ中だけ出す（タイトルとリザルトでは隠す） */
 #hud:not(.playing) #php-wrap, #hud:not(.playing) #bhp-wrap, #hud:not(.playing) #help, #hud:not(.playing) #combo,
 #hud.result-on #php-wrap, #hud.result-on #bhp-wrap, #hud.result-on #help, #hud.result-on #combo { display: none; }
-#res-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
+#res-panel, #rank-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
   gap: 10px; padding: 16px 30px 16px 40px;
   background: linear-gradient(90deg, rgba(10,3,9,0) 0%, rgba(12,4,11,0.62) 12%, rgba(12,4,11,0.88) 34%, rgba(12,4,11,0.94) 100%); }
 #result.lose #res-panel { width: min(92vw, 600px); height: auto; align-items: stretch; padding: 20px 28px 22px; border-radius: 18px;
@@ -173,7 +173,7 @@ const CSS = `
   #startbtn { margin-top: 8px; font-size: 17px; padding: 9px 32px; }
   .overlay .hint { margin-top: 6px; font-size: 10px; }
   #title p { margin: 4px 20px; }
-  #res-panel { gap: 3px; padding: 8px 22px 8px 30px; }
+  #res-panel, #rank-panel { gap: 3px; padding: 8px 22px 8px 30px; }
   #res-title { font-size: 11px; letter-spacing: 0.3em; }
   #res-rank { margin: 0 0 2px; }
   #res-rank .rk-sub { font-size: 9px; margin-top: 2px; letter-spacing: 0.35em; }
@@ -199,14 +199,47 @@ const CSS = `
 }
 @media (max-aspect-ratio: 1/1), (max-width: 700px) {
   #result { flex-direction: column; justify-content: flex-end; }
-  #res-panel { width: 100%; height: auto; padding: 14px 18px 20px; justify-content: flex-end;
+  #res-panel, #rank-panel { width: 100%; height: auto; padding: 14px 18px 20px; justify-content: flex-end;
     background: linear-gradient(180deg, rgba(10,3,9,0) 0%, rgba(12,4,11,0.55) 26%, rgba(12,4,11,0.93) 46%); }
   #res-body { gap: 14px; }
   #res-cap { width: clamp(80px, 22vw, 130px); }
 }
 #help { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6);
   letter-spacing: 0.1em; text-shadow: 0 1px 3px #000; white-space: nowrap; }
-#music { position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
+/* 名前の入力（タイトル） */
+#nameRow { display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
+#nameRow.hidden { display: none; }
+#nameRow label { font-size: 12px; letter-spacing: 0.2em; color: #ffd6c0; }
+#pname { width: 150px; padding: 8px 12px; border-radius: 20px; border: 2px solid rgba(255,179,71,0.7);
+  background: rgba(20,6,14,0.8); color: #fff; font-size: 15px; font-family: inherit; text-align: center; outline: none; }
+#pname:focus { border-color: #ffd86a; box-shadow: 0 0 12px rgba(255,180,80,0.5); }
+#rankbtn { pointer-events: auto; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
+  border: 2px solid rgba(200,160,255,0.7); background: rgba(30,10,40,0.8); color: #e8c8ff; cursor: pointer; font-family: inherit; }
+#rankbtn:active { transform: scale(0.95); }
+
+/* ランキングの表 */
+.ranklist { width: 100%; display: flex; flex-direction: column; gap: 3px; }
+.rank-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 8px;
+  padding: 5px 10px; border-radius: 8px; background: rgba(255,255,255,0.05); font-size: 13px; }
+.rank-row .no { text-align: right; font-weight: 900; color: #ffd6a0; font-size: 12px; }
+.rank-row .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+.rank-row .nm small { display: block; font-size: 9px; opacity: 0.6; letter-spacing: 0.05em; }
+.rank-row .sc { font-weight: 900; letter-spacing: 0.03em; }
+.rank-row.me { background: linear-gradient(90deg, rgba(255,140,60,0.35), rgba(255,90,140,0.18)); box-shadow: 0 0 0 1px rgba(255,190,120,0.5) inset; }
+.rank-row.top1 .no { color: #ffe98a; }
+.rank-row.top2 .no { color: #dfe6ff; }
+.rank-row.top3 .no { color: #ffc08a; }
+.rank-empty { font-size: 12px; color: rgba(255,255,255,0.5); padding: 10px; }
+#rank-panel { width: min(92vw, 620px); height: auto; max-height: 84vh; overflow-y: auto; align-items: stretch; }
+#rank-note { font-size: 11px; color: rgba(255,255,255,0.55); margin: 8px 0 2px; letter-spacing: 0.05em; }
+#rank-title { font-size: 20px; font-weight: 900; letter-spacing: 0.3em; color: #ffe0a0; margin-bottom: 10px; }
+/* リザルトの中に出す短いランキング */
+#res-rankbox { margin-top: 12px; }
+#res-rankbox .rank-row { font-size: 12px; }
+
+/* タイトルやリザルトのオーバーレイに隠れないよう手前に出す
+   （以前はタイトル中に ♪ を押せなかった） */
+#music { z-index: 5; position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
   width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(40,10,25,0.5);
   color: #fff; font-size: 16px; line-height: 1; font-family: inherit; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: opacity 0.2s; }
 #music.off { opacity: 0.42; }
@@ -215,6 +248,11 @@ const CSS = `
 `;
 
 import type { ScoreResult } from './Score';
+import type { Entry } from './Rank';
+
+/** 名前をそのまま HTML に入れないための逃がし */
+const esc = (v: string) =>
+  v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 export type CharId = 'mahiro' | 'chisato';
 export const CHARS: Record<CharId, { name: string; sub: string; file: string; cap: string; tint: string }> = {
@@ -282,6 +320,11 @@ export class UI {
             <b>${CHARS[id].name}</b><small>${CHARS[id].sub}</small>
           </button>`).join('')}
         </div>
+        <div id="nameRow" class="hidden">
+          <label for="pname">なまえ</label>
+          <input id="pname" maxlength="12" placeholder="ななし" autocomplete="off" spellcheck="false">
+          <button id="rankbtn" type="button">ランキング</button>
+        </div>
         <button id="startbtn" class="hidden">ゲーム開始</button>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
       </div>
@@ -290,6 +333,14 @@ export class UI {
         <span class="sw-name">-</span>
         <span class="sw-hp"><i></i></span>
       </button>
+      <div class="overlay hidden" id="rankboard">
+        <div id="rank-panel">
+          <div id="rank-title">ランキング</div>
+          <div id="rank-list" class="ranklist"></div>
+          <div id="rank-note"></div>
+          <div class="btnrow"><button id="rankclose">閉じる</button></div>
+        </div>
+      </div>
       <div class="overlay hidden" id="result">
         <div id="res-panel">
           <div id="res-title">浄化完了</div>
@@ -300,7 +351,11 @@ export class UI {
           </div>
           <div id="res-total"><span>TOTAL SCORE</span><b id="res-total-n">0</b></div>
           <div id="res-stats"></div>
-          <div class="btnrow"><button id="retry">もう一度</button></div>
+          <div id="res-rankbox"></div>
+          <div class="btnrow">
+            <button id="retry">もう一度</button>
+            <button id="sharebtn">結果を共有</button>
+          </div>
         </div>
       </div>`;
     parent.appendChild(hud);
@@ -357,6 +412,23 @@ export class UI {
     this.select('mahiro');
     this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });
     q('#retry').addEventListener('click', () => this.onRetry());
+
+    // 名前の入力。打ち替えるたびに呼び出し側へ渡す
+    this.nameRow = q('#nameRow');
+    this.nameInput = q('#pname') as HTMLInputElement;
+    this.nameInput.addEventListener('input', () => this.onName(this.nameInput.value));
+    this.nameInput.addEventListener('keydown', (e) => {
+      e.stopPropagation(); // ゲームの操作キーに拾われないように
+      if (e.key === 'Enter') this.nameInput.blur();
+    });
+    this.nameInput.addEventListener('pointerdown', (e) => e.stopPropagation());
+    this.rankBoard = q('#rankboard');
+    this.rankList = q('#rank-list');
+    this.rankNote = q('#rank-note');
+    this.resRankBox = q('#res-rankbox');
+    q('#rankbtn').addEventListener('click', (e) => { e.stopPropagation(); this.onRankOpen(); });
+    q('#rankclose').addEventListener('click', (e) => { e.stopPropagation(); this.hideRankBoard(); });
+    q('#sharebtn').addEventListener('click', (e) => { e.stopPropagation(); this.onShare(); });
   }
 
   private playerName: HTMLElement;
@@ -371,6 +443,61 @@ export class UI {
   onSwap: () => void = () => {};
   /** タイトルでキャラを選んだとき（背景のキャラを差し替える用） */
   onSelect: (c: CharId) => void = () => {};
+
+  private nameRow!: HTMLElement;
+  private nameInput!: HTMLInputElement;
+  private rankBoard!: HTMLElement;
+  private rankList!: HTMLElement;
+  private rankNote!: HTMLElement;
+  private resRankBox!: HTMLElement;
+  /** 名前が打ち替えられたとき */
+  onName: (v: string) => void = () => {};
+  /** タイトルの「ランキング」 */
+  onRankOpen: () => void = () => {};
+  /** リザルトの「結果を共有」 */
+  onShare: () => void = () => {};
+
+  /** 入力欄に入っている名前 */
+  get enteredName() { return this.nameInput?.value ?? ''; }
+  setName(v: string) { if (this.nameInput) this.nameInput.value = v; }
+
+  /**
+   * ランキングの表を描く。
+   * meAt は自分の記録の時刻。一致する行を強調し、上位から外れていたら末尾に足す
+   */
+  private renderList(el: HTMLElement, entries: Entry[], meAt: number, limit: number) {
+    if (entries.length === 0) {
+      el.innerHTML = '<div class="rank-empty">まだ記録がありません</div>';
+      return;
+    }
+    const meIdx = meAt === 0 ? -1 : entries.findIndex((e) => e.at === meAt);
+    const rows = entries.slice(0, limit).map((e, i) => this.row(e, i + 1, i === meIdx));
+    if (meIdx >= limit) {
+      rows.push('<div class="rank-row" style="opacity:.5"><span class="no"></span><span class="nm">…</span><span class="sc"></span></div>');
+      rows.push(this.row(entries[meIdx], meIdx + 1, true));
+    }
+    el.innerHTML = rows.join('');
+  }
+
+  private row(e: Entry, no: number, me: boolean) {
+    const cls = `rank-row${me ? ' me' : ''}${no <= 3 ? ` top${no}` : ''}`;
+    const sub = [e.rank, e.char, `${e.seconds.toFixed(1)}s`].filter(Boolean).join(' ／ ');
+    return `<div class="${cls}"><span class="no">${no}</span>` +
+      `<span class="nm">${esc(e.name)}<small>${esc(sub)}</small></span>` +
+      `<span class="sc">${e.score.toLocaleString()}</span></div>`;
+  }
+
+  /** タイトルから開くランキング */
+  showRankBoard(entries: Entry[], note: string, meAt = 0) {
+    this.renderList(this.rankList, entries, meAt, 20);
+    this.rankNote.textContent = note;
+    this.rankBoard.classList.remove('hidden');
+  }
+  hideRankBoard() { this.rankBoard.classList.add('hidden'); }
+  /** リザルトの中に出す短い順位表 */
+  setResultRanking(entries: Entry[], meAt: number) {
+    this.renderList(this.resRankBox, entries, meAt, 5);
+  }
 
   private musicBtn!: HTMLElement;
   /** BGM を鳴らすか。localStorage に覚える */
@@ -391,6 +518,7 @@ export class UI {
     this.loadingEl.style.display = ready ? 'none' : '';
     this.charsel.classList.toggle('hidden', !ready);
     this.startBtn.classList.toggle('hidden', !ready);
+    this.nameRow.classList.toggle('hidden', !ready);
   }
   setPlayerName(name: string) { this.playerName.textContent = name; }
   /** 戦闘用 HUD の表示。タイトル中は出さない */
