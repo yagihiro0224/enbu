@@ -251,6 +251,11 @@ export class Game {
           }
           console.info(`win dbg total=${this.score?.total} rank=${this.score?.rank.name}`);
         }
+        // ?tp でボスを一瞬で遠くへ飛ばす（瞬間移動と同じ状況を作る検証用）
+        if (q.has('tp')) {
+          this.boss.pos.set(7, 0, -7);
+          for (let i = 0; i < Number(q.get('tpf') ?? 20); i++) this.step(1 / 60);
+        }
         // ?swap で早送り後に交代を 1 回実行して 20 コマ進める
         if (q.has('swap')) { this.swap(); for (let i = 0; i < 20; i++) this.step(1 / 60); console.info(`swap dbg -> ${this.current}`); }
         // ?combo で 5 段コンボを 30fps の連続コマにして画面に貼る（cols 列 × rows 行）

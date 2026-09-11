@@ -54,6 +54,7 @@ export class Player {
   private tmp2 = new THREE.Vector3();
   private moveDir = new THREE.Vector3();
   private moveMag = 0;
+  private lastPos = new THREE.Vector3(0, 0, 5.5);
 
   constructor(public rig: Rig) {
     this.group.add(rig.root);
@@ -73,6 +74,8 @@ export class Player {
     rig.setFist?.(1, 1);
     this.rig.setFlash(0);
     this.rig.setWeaponGlow(0);
+    this.group.updateMatrixWorld(true);
+    rig.resetSprings?.();
   }
 
   /** 勝利ポーズに入る */
@@ -104,6 +107,9 @@ export class Player {
     this.flash = this.glow = 0;
     this.rig.setFlash(0);
     this.rig.setWeaponGlow(0);
+    this.group.position.copy(this.pos);
+    this.group.updateMatrixWorld(true);
+    this.rig.resetSprings?.();
   }
 
   get alive() {
@@ -514,6 +520,12 @@ export class Player {
     this.rig.update(dt);
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
+    // 位置が一気に飛んだら揺れ物を組み直す（開始位置に戻したときなど）
+    if (this.lastPos.distanceToSquared(this.pos) > 4) {
+      this.group.updateMatrixWorld(true);
+      this.rig.resetSprings?.();
+    }
+    this.lastPos.copy(this.pos);
     // 軌跡: ナイフは刃、蹴りは右脚（膝→足先）に付ける
     if (this.state === 'attack') {
       const cfg = this.style.attacks[this.attackStep];

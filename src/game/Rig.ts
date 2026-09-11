@@ -34,6 +34,11 @@ export interface Rig {
   setWeaponGlow(v: number): void;
   /** 指を握る 0..1（指の骨がある VRM のみ有効） */
   setFist?(left: number, right: number): void;
+  /**
+   * 揺れ物の物理を今の姿勢で初期化する。
+   * 瞬間移動のように位置が飛ぶと髪が引き伸ばされて壊れるので、その直後に呼ぶ。
+   */
+  resetSprings?(): void;
   update(dt: number): void;
   dispose(): void;
 }

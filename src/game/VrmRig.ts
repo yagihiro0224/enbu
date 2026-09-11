@@ -120,6 +120,9 @@ export async function tryLoadVrm(url: string, opts: { weapon?: 'staff' } = {}): 
     setWeaponGlow(v) {
       weapon?.setGlow(v);
     },
+    resetSprings() {
+      vrm.springBoneManager?.reset();
+    },
     setFist(l, r) {
       curl(fL, 1, l);
       curl(fR, -1, r);

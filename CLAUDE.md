@@ -258,3 +258,23 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - ボスの VRM は `await` せず裏で読み込む。タイトルを早く出すため。読めた時点で差し替わる
 - **3 体で約 46MB**。スマホの初回読み込みが重いので、VRoid の書き出しでポリゴン削減とテクスチャ統合を
   有効にしてもらうのが next step
+
+## 揺れ物（髪）の暴発（2026-09-11 修正）
+
+- 症状: ボスが瞬間移動すると後ろ髪が引き伸ばされて消えたように見える
+- 原因: VRM のスプリングボーンは前フレームの位置から計算するため、位置が一気に飛ぶと発散する。
+  さらに Boss.update は `rig.update(dt)`（揺れ物の計算）の**後**に `group.position` を入れていたので 1 フレーム遅れていた
+- 対処:
+  1. 位置と向きを `rig.update(dt)` より**前**に確定させる
+  2. 前フレームから 2m 以上飛んだら `group.updateMatrixWorld(true)` → `rig.resetSprings?.()` で今の姿勢から組み直す
+  3. `Rig.resetSprings?()` を追加（VrmRig は `vrm.springBoneManager?.reset()`）。Boss / Player の reset と setRig でも呼ぶ
+- 検証: `?tp` でボスを (7,0,-7) へ瞬間的に飛ばす。`?tpf=コマ数` で観察するフレームを変えられる
+
+## BGM を緊迫感のある曲に作り直し（2026-09-11）
+
+- テンポ 126 → **152**
+- コードを Am→F→G→Em から **Am→G→F→E（アンダルシア終止）** に。最後の E は長三和音（G#）で強い緊張を作る
+- 主旋律は和声的短音階の 8 分音符で押す。音色を三角波からのこぎり波＋ローパスに変えて 鋭く
+- ベースは 8 分の刻み＋裏で 1 オクターブ跳ね。フィルタの共鳴を上げて攻撃的に
+- 低い持続音（drone）、裏拍の刺し（stab）、4 小節終わりの立ち上がりノイズ（sweep）を追加
+- 実測 lv1 peak 0.387 / rms 0.0320、lv2 peak 0.438 / rms 0.0407

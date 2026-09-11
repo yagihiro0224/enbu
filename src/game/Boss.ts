@@ -48,6 +48,7 @@ export class Boss {
   private tmp = new THREE.Vector3();
   private tmp2 = new THREE.Vector3();
   private circle: THREE.Mesh | null = null;
+  private lastPos = new THREE.Vector3(0, 0, -6);
 
   /** VRM は身長を揃えるために root を縮めてある。その倍率を覚えておく */
   private baseScale = 1;
@@ -69,6 +70,8 @@ export class Boss {
     this.baseScale = rig.root.scale.x;
     rig.setFlash(0);
     rig.setWeaponGlow(0);
+    this.group.updateMatrixWorld(true);
+    rig.resetSprings?.();
   }
 
   /** 体力の上限を差し替える（検証用） */
@@ -99,6 +102,9 @@ export class Boss {
     this.rig.root.visible = true;
     this.rig.setFlash(0);
     this.rig.setWeaponGlow(0);
+    this.group.position.copy(this.pos);
+    this.group.updateMatrixWorld(true);
+    this.rig.resetSprings?.();
   }
 
   get alive() {
@@ -357,6 +363,10 @@ export class Boss {
     if (l > lim) { this.pos.x *= lim / l; this.pos.z *= lim / l; }
     this.vel.set(0, 0, 0);
     this.rig.root.visible = true;
+    // 位置が飛んだので髪の物理を組み直す
+    this.group.position.copy(this.pos);
+    this.group.updateMatrixWorld(true);
+    this.rig.resetSprings?.();
     ctx.particles.emit(this.center, { color: 0xc060ff, count: 30, speed: 4, size: 0.25, life: 0.5 });
     ctx.fx.flash(this.center, 0xd080ff, 3, 0.25);
     ctx.fx.ring(this.pos, 0xc060ff, 2.5, 0.3);
@@ -475,10 +485,17 @@ export class Boss {
       default: pose = poseFloat(this.t); break;
     }
     this.anim.apply(pose, rate, dt, this.vel.length() * 0.5);
-    this.rig.update(dt);
+    // 揺れ物の計算（rig.update）より前に位置と向きを確定させる。でないと 1 フレーム遅れて髪が引っ張られる
     this.rig.root.position.y = damp(this.rig.root.position.y, hover, 6, dt);
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
+    // 瞬間移動などで位置が一気に飛んだら、揺れ物を今の姿勢で組み直す
+    if (this.lastPos.distanceToSquared(this.pos) > 4) {
+      this.group.updateMatrixWorld(true);
+      this.rig.resetSprings?.();
+    }
+    this.lastPos.copy(this.pos);
+    this.rig.update(dt);
     this.rig.setFlash(this.flash);
     this.rig.setWeaponGlow(this.glow + (this.phase >= 3 ? 0.5 : 0));
     // 魔法陣

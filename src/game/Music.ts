@@ -12,29 +12,36 @@ const LOOP = STEPS_PER_BAR * BARS;
 /** MIDI ノート番号から周波数 */
 const hz = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12);
 
-/** 4 小節のコード（Am → F → G → Em）。イ短調の素直な流れ */
+/**
+ * 4 小節のコード。Am → G → F → E のアンダルシア終止。
+ * 最後の E は長三和音（G#）で、イ短調に対して強い緊張を作る。
+ */
 const CHORDS = [
   [57, 60, 64], // Am
-  [53, 57, 60], // F
   [55, 59, 62], // G
-  [52, 55, 59], // Em
+  [53, 57, 60], // F
+  [52, 56, 59], // E（G# を含む）
 ];
-const BASS = [45, 41, 43, 40];
+const BASS = [45, 43, 41, 40];
 
-/** 主旋律。LOOP 個のうち鳴らす位置だけ音を入れる */
+/** 主旋律。イ短調＋和声的短音階（G#）の 8 分音符で押していく */
 const LEAD: Record<number, number> = {
-  0: 69, 6: 72, 10: 71, 12: 69,
-  16: 65, 22: 69, 26: 72, 28: 71,
-  32: 67, 38: 71, 42: 74, 44: 72,
-  48: 64, 54: 67, 58: 71, 60: 69,
+  0: 69, 2: 72, 4: 71, 6: 69, 8: 76, 10: 74, 12: 72, 14: 71,
+  16: 67, 18: 71, 20: 74, 22: 71, 24: 67, 26: 74, 28: 72, 30: 71,
+  32: 65, 34: 69, 36: 72, 38: 69, 40: 65, 42: 72, 44: 71, 46: 69,
+  48: 64, 50: 68, 52: 71, 54: 68, 56: 76, 58: 71, 60: 68, 62: 64,
 };
 
-/** ベースを踏む位置 */
-const BASS_STEPS = [0, 3, 6, 8, 11, 14];
-/** バスドラを踏む位置 */
-const KICK_STEPS = [0, 6, 8, 14];
-/** スネアを鳴らす位置 */
+/** ベース。8 分で刻み、裏で 1 オクターブ上へ跳ねる */
+const BASS_STEPS = [0, 2, 4, 6, 8, 10, 12, 14];
+const BASS_OCT_STEPS = [7, 15];
+/** バスドラ。食い気味に踏む */
+const KICK_STEPS = [0, 3, 8, 11];
+const KICK_STEPS_HARD = [0, 3, 6, 8, 11, 14];
+/** スネア */
 const SNARE_STEPS = [4, 12];
+/** 裏拍の刺し（和音の短い打ち込み） */
+const STAB_STEPS = [7, 15];
 
 export type Intensity = 0 | 1 | 2; // 0: 静か（タイトル・リザルト） 1: 戦闘 2: 終盤
 
@@ -45,7 +52,7 @@ export class Music {
   private timer: ReturnType<typeof setInterval> | null = null;
   private nextTime = 0;
   private step = 0;
-  private bpm = 126;
+  private bpm = 152;
   private intensity: Intensity = 0;
   muted = false;
 
@@ -125,37 +132,46 @@ export class Music {
     const s = step % STEPS_PER_BAR;
     const chord = CHORDS[bar];
     const i = this.intensity;
+    const beat = 60 / this.bpm;
 
-    // パッド（どの場面でも鳴らす土台）
+    // パッドと、ずっと鳴り続ける低い持続音（緊張の土台）
     if (s === 0) {
-      for (const n of chord) this.pad(hz(n), t, 60 / this.bpm * 4 * 0.95, i === 0 ? 0.07 : 0.038);
+      for (const n of chord) this.pad(hz(n), t, beat * 4 * 0.95, i === 0 ? 0.07 : 0.03);
+      if (i >= 1) this.drone(hz(33), t, beat * 4);
     }
 
-    // アルペジオ。静かなときは間引く
-    const arpEvery = i === 0 ? 4 : i === 1 ? 2 : 2;
+    // アルペジオ
+    const arpEvery = i === 0 ? 4 : 2;
     if (s % arpEvery === 0) {
-      const n = chord[(step / arpEvery) % chord.length | 0] + (i === 2 && s % 8 === 4 ? 12 : 0);
-      this.pluck(hz(n + 12), t, i === 0 ? 0.06 : 0.06);
+      const n = chord[(step / arpEvery) % chord.length | 0];
+      this.pluck(hz(n + 12), t, i === 0 ? 0.06 : 0.045);
     }
 
     if (i === 0) return;
 
     // ベース
-    if (BASS_STEPS.includes(s)) this.bass(hz(BASS[bar]), t, 0.16);
+    if (BASS_STEPS.includes(s)) this.bass(hz(BASS[bar]), t, beat * 0.42);
+    if (BASS_OCT_STEPS.includes(s)) this.bass(hz(BASS[bar] + 12), t, beat * 0.22);
+
     // ドラム
-    if (KICK_STEPS.includes(s)) this.kick(t);
+    const kicks = i === 2 ? KICK_STEPS_HARD : KICK_STEPS;
+    if (kicks.includes(s)) this.kick(t);
     if (SNARE_STEPS.includes(s)) this.snare(t);
     const hatEvery = i === 2 ? 1 : 2;
-    if (s % hatEvery === 0) this.hat(t, s % 4 === 0 ? 0.1 : 0.05);
-    // 終盤は裏拍にもバスドラ
-    if (i === 2 && (s === 3 || s === 11)) this.kick(t, 0.7);
+    if (s % hatEvery === 0) this.hat(t, s % 4 === 0 ? 0.11 : 0.05);
+
+    // 裏拍の刺し
+    if (STAB_STEPS.includes(s)) this.stab(chord, t, i === 2 ? 0.05 : 0.035);
 
     // 主旋律
     const lead = LEAD[step];
     if (lead !== undefined) {
-      this.lead(hz(lead), t, 60 / this.bpm / 2);
-      if (i === 2) this.lead(hz(lead + 12), t, 60 / this.bpm / 2, 0.35);
+      this.lead(hz(lead), t, beat * 0.45, i === 2 ? 0.1 : 0.085);
+      if (i === 2) this.lead(hz(lead - 12), t, beat * 0.45, 0.045);
     }
+
+    // 4 小節の終わりに立ち上がるノイズ（次の周回へ向けた煽り）
+    if (i >= 1 && step === 56) this.sweep(t, beat * 2);
   }
 
   // ---- 音色 ----
@@ -207,15 +223,56 @@ export class Music {
     const o = this.osc('sawtooth', f, t, dur);
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(900, t);
-    lp.frequency.exponentialRampToValueAtTime(180, t + dur);
-    lp.Q.value = 6;
+    lp.frequency.setValueAtTime(1400, t);
+    lp.frequency.exponentialRampToValueAtTime(220, t + dur);
+    lp.Q.value = 9;
     o.connect(lp);
-    this.env(lp, t, dur, 0.22);
+    this.env(lp, t, dur, 0.24, 0.003);
+  }
+
+  /** 低い持続音。緊張感の土台 */
+  private drone(f: number, t: number, dur: number) {
+    const o = this.osc('sawtooth', f, t, dur);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(160, t);
+    lp.Q.value = 2;
+    o.connect(lp);
+    this.env(lp, t, dur, 0.1, 0.6);
+  }
+
+  /** 裏拍に刺す短い和音 */
+  private stab(chord: number[], t: number, peak: number) {
+    for (const n of chord) {
+      const o = this.osc('sawtooth', hz(n + 12), t, 0.1);
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(3200, t);
+      lp.frequency.exponentialRampToValueAtTime(900, t + 0.09);
+      o.connect(lp);
+      this.env(lp, t, 0.09, peak, 0.002);
+    }
+  }
+
+  /** 立ち上がるノイズ */
+  private sweep(t: number, dur: number) {
+    const n = this.noiseSrc(t, dur);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(400, t);
+    bp.frequency.exponentialRampToValueAtTime(6000, t + dur);
+    bp.Q.value = 1.4;
+    n.connect(bp);
+    const g = this.ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.09, t + dur * 0.92);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    bp.connect(g).connect(this.bus);
   }
 
   private lead(f: number, t: number, dur: number, peak = 0.08) {
-    const o = this.osc('triangle', f, t, dur);
+    // のこぎり波をフィルタで削って鋭く
+    const o = this.osc('sawtooth', f, t, dur);
     // わずかなビブラート
     const lfo = this.ctx.createOscillator();
     lfo.frequency.setValueAtTime(5.5, t);
@@ -224,7 +281,13 @@ export class Music {
     lfo.connect(lg).connect(o.frequency);
     lfo.start(t);
     lfo.stop(t + dur + 0.03);
-    this.env(o, t, dur, peak, 0.02);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(f * 6, t);
+    lp.frequency.exponentialRampToValueAtTime(Math.max(400, f * 2), t + dur);
+    lp.Q.value = 3;
+    o.connect(lp);
+    this.env(lp, t, dur, peak, 0.008);
   }
 
   private kick(t: number, level = 1) {
