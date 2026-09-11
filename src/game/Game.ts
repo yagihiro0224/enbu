@@ -27,6 +27,14 @@ const FOV = 50;
 
 type GState = 'title' | 'play' | 'over';
 
+/** 影を落とす設定。輪郭線用の裏面メッシュは除く */
+function castShadows(root: THREE.Object3D) {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh && m.name !== 'outline') m.castShadow = true;
+  });
+}
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -65,6 +73,8 @@ export class Game {
   constructor(container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(this.renderer.domElement);
 
@@ -91,6 +101,8 @@ export class Game {
       hairStyle: 'long', horns: true, weapon: 'staff',
     }));
     this.boss.attachFx(this.fx);
+    castShadows(this.player.group);
+    castShadows(this.boss.group);
     this.scene.add(this.player.group, this.boss.group);
 
     this.ui = new UI(container);
@@ -150,7 +162,7 @@ export class Game {
         const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/${model}.glb`);
         let mesh: THREE.Mesh | null = null;
         gltf.scene.traverse((o) => { if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh; });
-        if (mesh) this.player.setRig(autoRig(mesh, { height: 1.65, weapon: true }));
+        if (mesh) { this.player.setRig(autoRig(mesh, { height: 1.65, weapon: true })); castShadows(this.player.group); }
         console.info(`model ${model} loaded in ${performance.now().toFixed(0)}ms`);
       } catch (e) {
         console.warn('モデルの読み込みに失敗', e);
@@ -259,7 +271,7 @@ export class Game {
   private setChar(id: CharId) {
     const rig = this.rigs[id];
     if (!rig) return false;
-    if (this.player.rig !== rig) this.player.setRig(rig, true);
+    if (this.player.rig !== rig) { this.player.setRig(rig, true); castShadows(rig.root); }
     this.current = id;
     this.player.style = STYLES[id];
     this.fx.playerTrail.setColor(STYLES[id].color, STYLES[id].sharp ? 2.8 : 2.0);
@@ -362,6 +374,7 @@ export class Game {
     rig.root.position.copy(this.player.pos).addScaledVector(right, -1.05).addScaledVector(this.victoryDir, -0.5);
     rig.root.rotation.y = this.player.heading + 0.3;
     rig.setFist?.(0.25, 1);
+    castShadows(rig.root);
     this.scene.add(rig.root);
     this.partner = { rig, anim: new Animator(rig), t: 0 };
     console.info(`victory: winner=${this.current} partner=${otherId}`);
@@ -387,7 +400,12 @@ export class Game {
       // 3 秒続けて 35fps を下回ったらブルームを切る
       if (this.bloomOn && this.state === 'play') {
         this.lowFpsSec = fps < 35 ? this.lowFpsSec + 1 : 0;
-        if (this.lowFpsSec >= 3) { this.bloomOn = false; console.info('低フレームレートのためブルームを無効化'); }
+        if (this.lowFpsSec >= 3) {
+          this.bloomOn = false;
+          this.renderer.shadowMap.enabled = false;
+          this.arena.sun.castShadow = false;
+          console.info('低フレームレートのためブルームと影を無効化');
+        }
       }
     }
     this.step(real);
