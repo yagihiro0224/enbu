@@ -269,12 +269,20 @@ export class Game {
       }
     }
     if (q.has('bot')) this.input.bot = true;
+    // ?hittest 単体ならタイトル画面の状態を調べる
+    if (q.has('hittest') && !q.has('t') && !q.has('autostart')) setTimeout(() => this.hitTest(), 30);
+    // ?hittest で、各ボタンの中心を実際にタップしたらどの要素に届くかを調べる。
+    // 操作 UI（左半分のスティック領域）が HUD のボタンを覆っていないかの確認用。
+    // 過去に 2 度この形で壊れた（タイトルのキャラカード、スマホの交代ボタン）
+
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
         this.start(this.current);
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // 戦闘中の状態でボタンの当たりを調べる
+        if (q.has('hittest')) this.hitTest();
         // ?win=打撃数 でリザルト画面まで一気に進める（?dmg を付けると被弾ありになる）
         if (q.has('win')) {
           const pl = this.player;
@@ -410,6 +418,24 @@ export class Game {
     this.swapCd = 1.2;
     this.ui.showBanner(CHARS[next].name, '#ffd6c0', 0.9);
     this.sfx.teleport();
+  }
+
+  /** 各ボタンの中心に届く要素を調べて console に出す（?hittest） */
+  private hitTest() {
+    const names = ['#swap', '#music', '#b-attack', '#b-dodge', '#b-parry', '#startbtn'];
+    console.info(`hittest viewport: ${innerWidth}x${innerHeight}`);
+    for (const sel of names) {
+      const el = document.querySelector(sel) as HTMLElement | null;
+      const r = el?.getBoundingClientRect();
+      if (!el || !r || r.width === 0 || getComputedStyle(el).display === 'none') {
+        console.info(`hittest ${sel}: 非表示`);
+        continue;
+      }
+      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) as HTMLElement | null;
+      const owner = top?.closest('[id]') as HTMLElement | null;
+      const hit = owner?.id === el.id;
+      console.info(`hittest ${sel}: ${hit ? 'OK' : 'NG'} 手前は #${owner?.id ?? '不明'}`);
+    }
   }
 
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */

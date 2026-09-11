@@ -312,3 +312,17 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - **検証は `?bgmtest`**。置かれているファイル名を出す。ただし**仮想時間下では decodeAudioData が返らない**ので
   （createImageBitmap と同じ）、長さ・無音位置・音量の数値までは出ない。無音位置は ffmpeg で PCM に落として同じ走査を回して確かめた
 - **Suno の無料プランは曲のダウンロードができない**（2026-09-11 に上限到達を確認）。無料プランの曲は商用利用の権利も付かない
+
+## スマホで交代ボタンが押せなかった（2026-09-11 修正）
+
+- 症状: PC では Q キーで交代できるのに、スマホでは交代ボタンをタップしても反応しない
+- 原因: `#stick-zone`（画面の左半分を上から下まで覆う仮想スティックの領域、`#controls` の z-index 20）が
+  `#hud`（z-index 10）より手前にいて、左上の交代ボタンへのタップを全部横取りしていた。
+  **タイトルのキャラカードが押せなかったのと同じ原因**（あのときは操作 UI を隠して回避した）
+- 対処: `#hud` を z-index 30 にして操作 UI より手前へ。HUD は `pointer-events: none` で、
+  実際に押せるのは交代ボタン・♪ ボタン・オーバーレイだけなので、スティックやボタンの操作は奪わない。
+  合わせて `#swap::before`（inset -10px）で当たり判定を少し広げた
+- **検証は `?hittest`**。各ボタンの中心を `elementFromPoint` で調べ、手前にいる要素を出す。
+  `?nobitmap&t=3&hittest` で戦闘中、`?hittest` 単体でタイトルの状態を見る。
+  交代ボタンは 2 人そろっている必要があるので `?novrm` では出ない（VRM を読む形で確認すること）
+- 修正前は `hittest #swap: NG 手前は #stick-zone`、修正後は `OK`。z-index を戻して再現も確認済み

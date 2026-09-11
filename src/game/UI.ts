@@ -1,5 +1,7 @@
 const CSS = `
-#hud { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+/* 操作 UI（#controls、z-index 20）より手前に置く。
+   スティックの領域が左半分を覆うので、後ろにあると交代ボタンをタップできない */
+#hud { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
 .bar { position: absolute; height: 14px; border-radius: 7px; background: rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.35); overflow: hidden; }
 .bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; transition: transform 0.12s; }
 .bar > b { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; background: rgba(255,255,255,0.55); transition: transform 0.5s ease-out 0.2s; }
@@ -72,6 +74,8 @@ const CSS = `
 #swap.hidden { display: none; }
 #swap.cool { opacity: 0.45; }
 #swap:active { transform: scale(0.92); background: rgba(255,120,60,0.6); }
+/* 指で押しやすいよう当たり判定を外へ広げる（見た目は変えない） */
+#swap::before { content: ''; position: absolute; inset: -10px; border-radius: 16px; }
 /* ---- リザルト ---- */
 #result { background: none; flex-direction: row; align-items: stretch; justify-content: flex-end; }
 #result.lose { background: radial-gradient(ellipse at center, rgba(18,4,13,0.94), rgba(5,1,4,0.985)); flex-direction: column; align-items: center; justify-content: center; }
