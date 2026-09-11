@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { toonMat, addOutline } from './Toon';
+
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { rand, TAU } from './util';
 
@@ -194,6 +194,113 @@ function hazeTexture(): THREE.CanvasTexture {
   return t;
 }
 
+/** 木材。縦の木目と風化した色むら */
+function woodTexture(S = 256): HTMLCanvasElement {
+  const { c, g } = makeCanvas(S);
+  g.fillStyle = '#9e2f22';
+  g.fillRect(0, 0, S, S);
+  // 縦の木目
+  for (let i = 0; i < 170; i++) {
+    const x = rand(0, S);
+    const w = rand(0.6, 3.2);
+    const dark = Math.random() < 0.6;
+    g.strokeStyle = dark ? `rgba(60,16,12,${rand(0.06, 0.2)})` : `rgba(220,120,96,${rand(0.05, 0.14)})`;
+    g.lineWidth = w;
+    g.beginPath();
+    let x0 = x;
+    g.moveTo(x0, 0);
+    for (let y = 0; y <= S; y += 16) {
+      x0 += rand(-1.4, 1.4);
+      g.lineTo(x0, y);
+    }
+    g.stroke();
+  }
+  // 風化した剥がれ
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = `rgba(52,20,18,${rand(0.05, 0.16)})`;
+    const w = rand(3, 24), h = rand(6, 40);
+    g.fillRect(rand(0, S - w), rand(0, S - h), w, h);
+  }
+  return c;
+}
+
+/** 頂点に色を塗る。fn は局所座標から色を返す */
+function paint(src: THREE.BufferGeometry, fn: (x: number, y: number, z: number) => THREE.Color): THREE.BufferGeometry {
+  const geo = src.index ? src.toNonIndexed() : src;
+  const pos = geo.attributes.position as THREE.BufferAttribute;
+  const col = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const c = fn(pos.getX(i), pos.getY(i), pos.getZ(i));
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return geo;
+}
+
+/** 稜線をばらつかせた山。頂上ほど明るくする */
+function mountainGeo(radius: number, height: number, seed: number, dark: THREE.Color, light: THREE.Color): THREE.BufferGeometry {
+  const g = new THREE.ConeGeometry(radius, height, 14, 5);
+  const pos = g.attributes.position as THREE.BufferAttribute;
+  const n = (a: number) => Math.sin(a * 3 + seed) * 0.2 + Math.sin(a * 7 + seed * 2.3) * 0.1 + Math.sin(a * 13 + seed * 3.7) * 0.055;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+    const r = Math.hypot(x, z);
+    if (r < 1e-4) continue;
+    const a = Math.atan2(z, x);
+    // 裾ほど大きく崩す
+    const t = 1 - (y + height / 2) / height;
+    const k = 1 + n(a) * (0.35 + t * 0.75);
+    pos.setXYZ(i, x * k, y + Math.sin(a * 5 + seed) * height * 0.02, z * k);
+  }
+  g.computeVertexNormals();
+  const tmp = new THREE.Color();
+  return paint(g, (_x, y) => {
+    const t = (y + height / 2) / height;
+    return tmp.copy(dark).lerp(light, Math.pow(Math.max(0, (t - 0.55) / 0.45), 1.4));
+  });
+}
+
+/** 針葉樹。幹と、段になった葉 */
+function coniferGeos(h: number, tint: THREE.Color): THREE.BufferGeometry[] {
+  const out: THREE.BufferGeometry[] = [];
+  const trunkH = h * 0.26;
+  const trunk = new THREE.CylinderGeometry(h * 0.028, h * 0.045, trunkH, 5);
+  trunk.translate(0, trunkH / 2, 0);
+  out.push(paint(trunk, () => new THREE.Color(0x2a1a20)));
+  const tiers = 3;
+  for (let i = 0; i < tiers; i++) {
+    const t = i / (tiers - 1);
+    const r = h * (0.3 - t * 0.16) * rand(0.9, 1.12);
+    const hh = h * (0.42 - t * 0.1);
+    const y = trunkH * 0.7 + (h - trunkH) * t * 0.62;
+    const cone = new THREE.ConeGeometry(r, hh, 7);
+    cone.rotateY(rand(0, 3));
+    cone.translate(rand(-0.04, 0.04) * h, y + hh / 2, rand(-0.04, 0.04) * h);
+    const c = tint.clone().multiplyScalar(rand(0.8, 1.25));
+    out.push(paint(cone, (_x, yy) => c.clone().multiplyScalar(0.75 + 0.45 * ((yy - y) / hh))));
+  }
+  return out;
+}
+
+/** 広葉樹。幹と、塊になった葉 */
+function broadleafGeos(h: number, tint: THREE.Color): THREE.BufferGeometry[] {
+  const out: THREE.BufferGeometry[] = [];
+  const trunkH = h * 0.45;
+  const trunk = new THREE.CylinderGeometry(h * 0.035, h * 0.06, trunkH, 5);
+  trunk.translate(0, trunkH / 2, 0);
+  out.push(paint(trunk, () => new THREE.Color(0x2a1a20)));
+  const blobs = 3;
+  for (let i = 0; i < blobs; i++) {
+    const r = h * rand(0.2, 0.3);
+    const b = new THREE.IcosahedronGeometry(r, 0);
+    b.scale(1, rand(0.7, 0.95), 1);
+    b.translate(rand(-0.18, 0.18) * h, trunkH + rand(0.05, 0.3) * h, rand(-0.18, 0.18) * h);
+    const c = tint.clone().multiplyScalar(rand(0.75, 1.2));
+    out.push(paint(b, (_x, yy) => c.clone().multiplyScalar(0.7 + 0.5 * (yy / (h * 1.1)))));
+  }
+  return out;
+}
+
 function skyDome(): THREE.Mesh {
   const mat = new THREE.ShaderMaterial({
     uniforms: {
@@ -301,30 +408,61 @@ export function createArena(R: number): ArenaResult {
   edge.position.y = 0.05;
   group.add(edge);
 
-  // ---- 鳥居 ----
-  const red = toonMat(0xc4372a);
-  const black = toonMat(0x1e0d16);
+  // ---- 鳥居（明神鳥居。柱は内側に傾き、笠木は反りを持たせる）----
+  const wood = new THREE.CanvasTexture(woodTexture());
+  wood.colorSpace = THREE.SRGBColorSpace;
+  wood.wrapS = wood.wrapT = THREE.RepeatWrapping;
+  wood.anisotropy = 8;
+  const woodMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.86, metalness: 0, color: 0xd8a89a });
+  const darkWoodMat = new THREE.MeshStandardMaterial({ map: wood, roughness: 0.9, metalness: 0, color: 0x4a3038 });
   const torii = new THREE.Group();
+  const halfSpan = 2.35, postH = 4.7, lean = 0.035;
   for (const s of [1, -1]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.26, 5.2, 14), red);
-    post.position.set(s * 2.2, 2.6, 0);
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.27, postH, 16), woodMat);
+    post.position.set(s * halfSpan, postH / 2, 0);
+    post.rotation.z = s * lean; // 内側へわずかに傾ける
     post.castShadow = true;
-    addOutline(post, 0.03);
+    post.receiveShadow = true;
     torii.add(post);
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.36, 0.3, 12), black);
-    foot.position.set(s * 2.2, 0.15, 0);
+    // 根元の亀腹
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.46, 0.34, 14), new THREE.MeshStandardMaterial({ color: 0x6d5c72, roughness: 0.95 }));
+    foot.position.set(s * halfSpan, 0.17, 0);
+    foot.castShadow = true;
     torii.add(foot);
   }
-  const kasagi = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.4, 0.5), black);
-  kasagi.position.y = 5.3;
-  kasagi.castShadow = true;
-  addOutline(kasagi, 0.03);
-  torii.add(kasagi);
-  const nuki = new THREE.Mesh(new THREE.BoxGeometry(5.6, 0.28, 0.32), red);
-  nuki.position.y = 4.4;
-  addOutline(nuki, 0.03);
+  // 貫（柱を貫いて外へ出る）
+  const nuki = new THREE.Mesh(new THREE.BoxGeometry(halfSpan * 2 + 1.0, 0.3, 0.38), darkWoodMat);
+  nuki.position.y = postH * 0.72;
+  nuki.castShadow = true;
   torii.add(nuki);
-  torii.position.set(0, 0, -R - 2.5);
+  // 額束（貫と島木の間の短い柱）
+  const gaku = new THREE.Mesh(new THREE.BoxGeometry(0.26, postH * 0.2, 0.3), darkWoodMat);
+  gaku.position.y = postH * 0.72 + postH * 0.1 + 0.15;
+  torii.add(gaku);
+  // 島木と笠木。反りを付けるため頂点を持ち上げる
+  const sweep = (geo: THREE.BufferGeometry, half: number, amount: number, tipTaper: number) => {
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const t = Math.abs(x) / half;
+      pos.setY(i, pos.getY(i) + t * t * amount);
+      if (t > 0.86) pos.setY(i, pos.getY(i) * (1 - (t - 0.86) * tipTaper));
+    }
+    geo.computeVertexNormals();
+    return geo;
+  };
+  const simaHalf = halfSpan + 0.75;
+  const sima = new THREE.Mesh(sweep(new THREE.BoxGeometry(simaHalf * 2, 0.3, 0.46, 24, 1, 1), simaHalf, 0.34, 0.5), darkWoodMat);
+  sima.position.y = postH + 0.02;
+  sima.castShadow = true;
+  torii.add(sima);
+  const kasaHalf = halfSpan + 1.0;
+  const kasa = new THREE.Mesh(sweep(new THREE.BoxGeometry(kasaHalf * 2, 0.34, 0.6, 28, 1, 1), kasaHalf, 0.46, 0.55), woodMat);
+  kasa.position.y = postH + 0.33;
+  kasa.castShadow = true;
+  torii.add(kasa);
+  torii.position.set(0, 0, -R - 3.2);
+  torii.rotation.y = 0.06;
   group.add(torii);
 
   // ---- 石灯籠 ----
@@ -342,11 +480,14 @@ export function createArena(R: number): ArenaResult {
     box.position.y = 1.95;
     const glow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.34, 0.62), lanternLight);
     glow.position.y = 1.95;
-    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.6, 0.4, 4), black);
-    roof.position.y = 2.4;
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x453845, roughness: 0.95, metalness: 0, flatShading: true });
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(0.62, 0.42, 4), roofMat);
+    roof.position.y = 2.42;
     roof.rotation.y = Math.PI / 4;
-    for (const m of [base, pole, box, roof]) { addOutline(m, 0.02); m.castShadow = true; }
-    l.add(base, pole, box, glow, roof);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), roofMat);
+    cap.position.y = 2.66;
+    for (const m of [base, pole, box, roof, cap]) { m.castShadow = true; m.receiveShadow = true; }
+    l.add(base, pole, box, glow, roof, cap);
     l.position.set(Math.cos(a) * (R + 3.4), -0.3, Math.sin(a) * (R + 3.4));
     group.add(l);
     lanterns.push(l);
@@ -377,34 +518,49 @@ export function createArena(R: number): ArenaResult {
   group.add(rocks);
 
   // ---- 遠景: 手前の尾根、奥の尾根、樹林の輪郭 ----
-  const ridge = (dist: number, hMin: number, hMax: number, n: number, color: number, wMin: number, wMax: number, yBase: number) => {
+  const ridge = (dist: number, hMin: number, hMax: number, n: number, dark: number, light: number, wMin: number, wMax: number, yBase: number) => {
     const gs: THREE.BufferGeometry[] = [];
+    const dc = new THREE.Color(dark), lc = new THREE.Color(light);
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * TAU + rand(-0.14, 0.14);
+      const a = (i / n) * TAU + rand(-0.16, 0.16);
       const h = rand(hMin, hMax);
-      const gme = new THREE.ConeGeometry(rand(wMin, wMax), h, 5);
-      const d = dist * rand(0.86, 1.16);
-      gme.rotateY(rand(0, 3));
+      const gme = mountainGeo(rand(wMin, wMax), h, rand(0, 30), dc, lc);
+      const d = dist * rand(0.82, 1.2);
+      gme.rotateY(rand(0, 6));
       gme.translate(Math.cos(a) * d, h / 2 + yBase, Math.sin(a) * d);
       gs.push(gme);
     }
-    const m = new THREE.Mesh(mergeGeometries(gs, false)!, new THREE.MeshBasicMaterial({ color, fog: true }));
+    const m = new THREE.Mesh(mergeGeometries(gs, false)!, new THREE.MeshStandardMaterial({
+      vertexColors: true, roughness: 1, metalness: 0, flatShading: true, fog: true,
+    }));
     group.add(m);
   };
-  ridge(100, 28, 52, 15, 0x160a26, 18, 34, -8);  // 奥
-  ridge(68, 17, 32, 17, 0x1c0d2c, 11, 22, -7);   // 中
-  ridge(46, 9, 18, 21, 0x140919, 6, 12, -3);     // 手前
-  // 樹林の輪郭。ばらけさせて壁に見えないようにする
+  ridge(102, 30, 56, 15, 0x1a0d2a, 0x5a3f6e, 20, 36, -9);  // 奥（空に溶ける）
+  ridge(70, 18, 34, 17, 0x1c0e28, 0x50305f, 12, 24, -8);   // 中
+  ridge(47, 9, 19, 21, 0x181120, 0x3f2a4a, 6, 13, -3);     // 手前
+  // 樹林。針葉樹と広葉樹を混ぜ、群れで置いて壁に見えないようにする
   const treeGeos: THREE.BufferGeometry[] = [];
-  for (let i = 0; i < 76; i++) {
-    const a = rand(0, TAU);
-    const d = rand(29, 44);
-    const h = rand(2.2, 6.4);
-    const gme = new THREE.ConeGeometry(rand(0.45, 1.3), h, 5);
-    gme.translate(Math.cos(a) * d, h / 2 - 1.0, Math.sin(a) * d);
-    treeGeos.push(gme);
+  const near = new THREE.Color(0x241432), far = new THREE.Color(0x1a0e26);
+  for (let c = 0; c < 26; c++) {
+    const ca = rand(0, TAU);
+    const cd = rand(28, 46);
+    const cnt = Math.round(rand(2, 6));
+    for (let i = 0; i < cnt; i++) {
+      const a = ca + rand(-0.09, 0.09);
+      const d = cd + rand(-3.5, 3.5);
+      const h = rand(2.6, 7.2);
+      const tint = (d < 36 ? near : far).clone();
+      const parts = Math.random() < 0.7 ? coniferGeos(h, tint) : broadleafGeos(h, tint);
+      for (const gme of parts) {
+        gme.translate(Math.cos(a) * d, -1.0, Math.sin(a) * d);
+        treeGeos.push(gme);
+      }
+    }
   }
-  const trees = new THREE.Mesh(mergeGeometries(treeGeos, false)!, new THREE.MeshBasicMaterial({ color: 0x120a1e, fog: true }));
+  const trees = new THREE.Mesh(mergeGeometries(treeGeos, false)!, new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0, flatShading: true, fog: true,
+  }));
+  trees.castShadow = false;
   group.add(trees);
 
   // ---- 地表の靄 ----
@@ -497,7 +653,7 @@ export function createArena(R: number): ArenaResult {
   sc.updateProjectionMatrix();
   sun.shadow.bias = -0.0012;
   sun.shadow.normalBias = 0.035;
-  const fill = new THREE.DirectionalLight(0xff6a4a, 0.45);
+  const fill = new THREE.DirectionalLight(0xff7a58, 0.6);
   fill.position.set(7, 4, 9);
   group.add(hemi, sun, fill);
 

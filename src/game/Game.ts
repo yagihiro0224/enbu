@@ -494,7 +494,11 @@ export class Game {
     let desired: THREE.Vector3;
     let look: THREE.Vector3;
     const debugCam = new URLSearchParams(location.search).get('cam');
-    if (debugCam === 'hand' || debugCam === 'handR') {
+    if (debugCam === 'torii') {
+      // 動作確認用: 鳥居を正面から見る
+      desired = new THREE.Vector3(0, 3.2, -ARENA_R + 4);
+      look = new THREE.Vector3(0, 3.0, -ARENA_R - 3.2);
+    } else if (debugCam === 'hand' || debugCam === 'handR') {
       // 動作確認用: 手元のアップ（拳の形を見る）
       const arm = debugCam === 'hand' ? pl.rig.lowerArmL : pl.rig.lowerArmR;
       pl.group.updateMatrixWorld(true);

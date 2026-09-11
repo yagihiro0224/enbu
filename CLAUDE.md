@@ -202,3 +202,9 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 舞台が浮いて見えないよう半径 120 の外周地面（土のテクスチャ）を敷いた
 - 遠景は尾根 3 層 + 樹林。`mergeGeometries` で 1 メッシュにまとめて描画回数を抑えている
 - 地表の靄（円筒 3 枚）をゆっくり流す。星と月のハローを追加
+
+- 山は `mountainGeo()` で円錐の稜線を角度ノイズで崩し、頂上ほど明るい頂点色を付ける（`flatShading` で面が出る）。
+- 木は `coniferGeos()` / `broadleafGeos()`。幹＋段になった葉で、群れ単位に置いてばらけさせる。
+- 鳥居は明神鳥居。柱は内側に傾けて先細り、笠木と島木は頂点を持ち上げて反りを付ける。貫は柱の外へ出し、額束を入れる。
+  木目は `woodTexture()` のキャンバス生成。輪郭線は使わず光と質感で見せる。
+- 動作確認用カメラ `?cam=torii` を追加。
