@@ -15,6 +15,7 @@ import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
 import { Items } from './Items';
+import { Music } from './Music';
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -51,6 +52,7 @@ export class Game {
   private items = new Items(ARENA_R, 3);
   /** 体力はキャラごとに持つ。控えは少しずつ回復する */
   private charHp: Record<CharId, number> = { mahiro: 100, chisato: 100 };
+  private music: Music | null = null;
   private composer: EffectComposer;
   private bloomOn = true;
   private lowFpsSec = 0;
@@ -127,6 +129,9 @@ export class Game {
     this.ui.onSelect = (c) => { if (this.state === 'title') this.setChar(c); };
     this.ui.onRetry = () => this.restart();
     this.ui.onSwap = () => this.swap();
+    // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
+    this.ui.onGesture = () => { this.ensureMusic(); this.music?.setIntensity(0); };
+    this.ui.onMusicToggle = (on) => this.music?.setMuted(!on);
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
@@ -184,6 +189,25 @@ export class Game {
       this.player.hp = Number(q.get('lowhp')) || 40;
       this.charHp[this.current] = this.player.hp;
       this.ui.setPlayerHp(this.player.hp / this.player.maxHp);
+    }
+    // ?musictest で BGM をオフラインに描き出し、実際に音が出ているかを数値で確かめる
+    if (q.has('musictest')) {
+      const only = Number(q.get('musictest'));
+      const levels = ([0, 1, 2] as const).filter((l) => !only || l === only);
+      for (const lv of levels) {
+        const sec = 6;
+        const off = new OfflineAudioContext(1, 44100 * sec, 44100);
+        const nb = off.createBuffer(1, 44100, 44100);
+        const nd = nb.getChannelData(0);
+        for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+        const m = new Music(off, off.destination, nb);
+        m.scheduleOffline(sec, lv);
+        const buf = await off.startRendering();
+        const d = buf.getChannelData(0);
+        let peak = 0, sum = 0;
+        for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; sum += d[i] * d[i]; }
+        console.info(`musictest lv${lv}: peak=${peak.toFixed(3)} rms=${Math.sqrt(sum / d.length).toFixed(4)}`);
+      }
     }
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
@@ -324,10 +348,21 @@ export class Game {
     this.sfx.teleport();
   }
 
+  /** 音が開けていれば BGM を用意する */
+  private ensureMusic() {
+    this.sfx.unlock();
+    if (this.music) return;
+    const a = this.sfx.audio;
+    if (!a) return;
+    this.music = new Music(a.ctx, a.dest, a.noise);
+    this.music.setMuted(!this.ui.musicOn);
+    this.music.start();
+  }
+
   private start(char: CharId) {
     if (this.state !== 'title') return;
     this.setChar(char);
-    this.sfx.unlock();
+    this.ensureMusic();
     this.sfx.start();
     this.ui.hideTitle();
     this.beginPlay();
@@ -362,6 +397,7 @@ export class Game {
     this.ui.setPlaying(true);
     this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
     this.refreshRest();
+    this.music?.setIntensity(1);
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }
 
@@ -374,6 +410,7 @@ export class Game {
     this.input.reset();
     this.input.setVisible(false);
     this.ui.setSwapVisible(false);
+    this.music?.setIntensity(0);
     this.ctx.hitstop(2.2, 0.3);
     this.score = computeScore({
       hits: this.player.meleeHits,
@@ -478,6 +515,8 @@ export class Game {
     }
     this.boss.update(dt, this.ctx, playing);
     this.items.update(dt, this.ctx, playing);
+    // 終盤は曲を厚くする
+    if (playing) this.music?.setIntensity(this.boss.phase >= 3 ? 2 : 1);
     // 控えているキャラは少しずつ回復する
     if (playing) {
       const other: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';

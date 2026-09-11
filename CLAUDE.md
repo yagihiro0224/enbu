@@ -235,3 +235,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 交代ボタンに控えの名前と体力バーを出す（`UI.setRest`）。控えの体力を見て交代を判断させるため
 - **どちらかが倒れたら負け**は変わらない（操作中のキャラの体力が 0 → `onPlayerDead` → 敗北）。控えは回復しかしないので倒れない
 - 動作確認: `?lowhp=数値` で体力を減らして開始
+
+## BGM（2026-09-11）
+
+- `Music.ts`。音声ファイルは使わず WebAudio の合成音。イ短調 Am→F→G→Em の 4 小節ループ、126BPM。
+  パッド・アルペジオ・ベース・バスドラ・スネア・ハイハット・主旋律を自前の音色で鳴らす
+- **先読み方式**（40ms ごとに 0.25 秒先まで予約）なのでループの継ぎ目が出ない。`setInterval` は AudioContext の時計で補正している
+- 濃さは 3 段階: 0 静か（タイトル・リザルト）/ 1 戦闘 / 2 終盤（ボス第 3 形態）。Game が場面に応じて `setIntensity`
+- `Sfx.audio` で AudioContext・出力先・ノイズ音源を借りる。**AudioContext は操作がないと開けない**ので、
+  タイトルでキャラを選んだ時点（`UI.onGesture`）で開けて静かな曲から始める
+- 右上の ♪ ボタンで切り替え。設定は localStorage の `enbu.music` に覚える
+- **検証**: `?musictest`（または `?musictest=2` で 1 段階だけ）で OfflineAudioContext に描き出し、peak と rms を console に出す。
+  実測 lv0 peak 0.122 / lv1 0.360 / lv2 0.403（Sfx の master 0.5 を通る前の値）

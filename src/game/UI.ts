@@ -200,6 +200,11 @@ const CSS = `
 }
 #help { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6);
   letter-spacing: 0.1em; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+#music { position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
+  width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(40,10,25,0.5);
+  color: #fff; font-size: 16px; line-height: 1; font-family: inherit; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: opacity 0.2s; }
+#music.off { opacity: 0.42; }
+#music:active { transform: scale(0.92); }
 #fps { position: absolute; left: 8px; bottom: 6px; font-size: 10px; color: rgba(255,255,255,0.4); font-family: monospace; }
 `;
 
@@ -257,6 +262,7 @@ export class UI {
       <div id="combo"><div class="n">0</div><div class="l">COMBO</div></div>
       <div id="banner"></div>
       <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・Q 交代</div>
+      <button id="music" title="BGM">♪</button>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">
@@ -328,10 +334,20 @@ export class UI {
     }
     this.cards = Array.from(hud.querySelectorAll<HTMLElement>('.charcard'));
     for (const b of this.cards) {
-      b.addEventListener('click', (e) => { e.stopPropagation(); this.select(b.dataset.char as CharId); });
+      b.addEventListener('click', (e) => { e.stopPropagation(); this.select(b.dataset.char as CharId, true); });
     }
     this.startBtn = q('#startbtn');
     this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(this.selected); });
+    this.musicBtn = q('#music');
+    this.musicBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.musicOn = !this.musicOn;
+      this.musicBtn.classList.toggle('off', !this.musicOn);
+      try { localStorage.setItem('enbu.music', this.musicOn ? '1' : '0'); } catch { /* 保存できなくても動く */ }
+      this.onMusicToggle(this.musicOn);
+    });
+    try { this.musicOn = localStorage.getItem('enbu.music') !== '0'; } catch { /* 既定は鳴らす */ }
+    this.musicBtn.classList.toggle('off', !this.musicOn);
     this.select('mahiro');
     this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });
     q('#retry').addEventListener('click', () => this.onRetry());
@@ -350,10 +366,18 @@ export class UI {
   /** タイトルでキャラを選んだとき（背景のキャラを差し替える用） */
   onSelect: (c: CharId) => void = () => {};
 
-  private select(c: CharId) {
+  private musicBtn!: HTMLElement;
+  /** BGM を鳴らすか。localStorage に覚える */
+  musicOn = true;
+  onMusicToggle: (on: boolean) => void = () => {};
+  /** 最初の操作（AudioContext を開けるようになった合図） */
+  onGesture: () => void = () => {};
+
+  private select(c: CharId, byUser = false) {
     this.selected = c;
     for (const b of this.cards) b.classList.toggle('selected', b.dataset.char === c);
     this.onSelect(c);
+    if (byUser) this.onGesture();
   }
 
   /** 読み込み完了後にキャラ選択を出す */

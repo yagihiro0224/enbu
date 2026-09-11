@@ -26,6 +26,12 @@ export class Sfx {
     }
   }
 
+  /** BGM が使う音声の入り口。unlock() 済みのときだけ返る */
+  get audio(): { ctx: AudioContext; dest: AudioNode; noise: AudioBuffer } | null {
+    if (!this.ctx || !this.master || !this.noiseBuf) return null;
+    return { ctx: this.ctx, dest: this.master, noise: this.noiseBuf };
+  }
+
   private tone(freq: number, dur: number, opts: { type?: OscillatorType; gain?: number; end?: number; attack?: number; delay?: number } = {}) {
     if (!this.ctx || !this.master || this.muted) return;
     const t0 = this.ctx.currentTime + (opts.delay ?? 0);
