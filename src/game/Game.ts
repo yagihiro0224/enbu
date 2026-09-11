@@ -194,6 +194,35 @@ export class Game {
       this.charHp[this.current] = this.player.hp;
       this.ui.setPlayerHp(this.player.hp / this.player.maxHp);
     }
+    // ?sfxtest で攻撃音をオフラインに描き出し、音量と長さを数値で確かめる
+    if (q.has('sfxtest')) {
+      const cases: [string, (x: Sfx) => void][] = [
+        ['whooshHeavy', (x) => x.whooshHeavy()],
+        ['thud', (x) => x.thud()],
+        ['heavyHit', (x) => x.heavyHit()],
+        ['whooshSharp', (x) => x.whooshSharp()],
+        ['ping', (x) => x.ping(1, false)],
+        ['pingHeavy', (x) => x.ping(1.2, true)],
+        ['parry', (x) => x.parry()],
+      ];
+      const only = q.get('sfxtest');
+      for (const [name, run] of cases.filter(([n]) => !only || n.toLowerCase().includes(only.toLowerCase()))) {
+        const off = new OfflineAudioContext(1, 44100, 44100);
+        const sfx = new Sfx();
+        sfx.bindTo(off, off.destination);
+        run(sfx);
+        const buf = await off.startRendering();
+        const d = buf.getChannelData(0);
+        let peak = 0, sum = 0, last = 0;
+        for (let i = 0; i < d.length; i++) {
+          const v = Math.abs(d[i]);
+          if (v > peak) peak = v;
+          if (v > 0.002) last = i;
+          sum += d[i] * d[i];
+        }
+        console.info(`sfxtest ${name}: peak=${peak.toFixed(3)} rms=${Math.sqrt(sum / d.length).toFixed(4)} len=${(last / 44100).toFixed(2)}s`);
+      }
+    }
     // ?musictest で BGM をオフラインに描き出し、実際に音が出ているかを数値で確かめる
     if (q.has('musictest')) {
       const only = Number(q.get('musictest'));

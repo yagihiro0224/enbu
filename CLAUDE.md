@@ -278,3 +278,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - ベースは 8 分の刻み＋裏で 1 オクターブ跳ね。フィルタの共鳴を上げて攻撃的に
 - 低い持続音（drone）、裏拍の刺し（stab）、4 小節終わりの立ち上がりノイズ（sweep）を追加
 - 実測 lv1 peak 0.387 / rms 0.0320、lv2 peak 0.438 / rms 0.0407
+
+## 攻撃音の作り直し（2026-09-11）
+
+- Sfx に**残響（ConvolverNode + 自前の減衰ノイズ IR、0.42 秒）**と**歪み（WaveShaper、tanh）**の段を追加。
+  `send(node, amount)` で残響へ送り、`drive()` で潰す
+- 打撃は 1 音ではなく重ねて作る: 立ち上がりの破裂（高域ノイズ 0.02〜0.03 秒）＋ 胴鳴り（歪ませた三角波の下降）
+  ＋ 低い芯（サイン波の下降）＋ 余韻（ローパスしたノイズを残響へ）
+- ちさとの着弾は**非整数倍の倍音**（1, 1.83, 2.41, 3.27, 4.61）を重ねて金属質にしている
+- 風切りは帯域通過の中心周波数を弧を描くように動かす。**Q を上げるとエネルギーが落ちて聞こえなくなる**ので 0.9〜1.3 に留める
+- `Sfx.bindTo(ctx, dest)` で OfflineAudioContext に繋げる。**検証は `?sfxtest`**（`?sfxtest=ping` のように名前で絞れる）。
+  実測 whooshHeavy 0.147 / thud 0.403 / heavyHit 0.160 / whooshSharp 0.170 / ping 0.242 / pingHeavy 0.309（master 0.5 の前）
+- 音を変えたら必ず `?sfxtest` で測る。耳で確認できないので数値が唯一の裏づけ
