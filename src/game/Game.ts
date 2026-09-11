@@ -104,6 +104,7 @@ export class Game {
     };
 
     this.ui.onStart = (c) => this.start(c);
+    this.ui.onSelect = (c) => { if (this.state === 'title') this.setChar(c); };
     this.ui.onRetry = () => this.restart();
     this.ui.onSwap = () => this.swap();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
@@ -277,6 +278,7 @@ export class Game {
     this.playTime = 0;
     this.input.reset();
     this.input.enabled = true;
+    this.input.setVisible(true);
     this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }
@@ -288,6 +290,7 @@ export class Game {
     this.overTimer = 0;
     this.input.enabled = false;
     this.input.reset();
+    this.input.setVisible(false);
     this.ui.setSwapVisible(false);
     this.ctx.hitstop(2.2, 0.3);
     if (win) { this.sfx.win(); this.ui.showBanner('浄化', '#ffe08a', 2); this.ui.flash(0.8); }

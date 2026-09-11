@@ -148,3 +148,9 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 1. `git clone https://github.com/hiro0224world/enbu.git && cd enbu && npm install`
 2. Claude Code をリポジトリ直下で起動し、「CLAUDE.md を読んで続きをやって」と伝える
 3. 設定画や VRM/GLB ができたら `public/models/` に置くか、チャットに貼る
+
+## タイトルの操作（2026-09-11 修正）
+
+- **Input の操作 UI（#controls、z-index 20）は左半分全体がスティック領域なので、タイトル中に出ているとカードのタップを横取りする**。
+  Input.setVisible(false) でタイトルとリザルトでは隠す。beginPlay で表示。過去に「まひろを選んでも反応しない」バグの原因になった
+- タイトルはカードで選択（背景のキャラも即差し替え）→「ゲーム開始」ボタンで開始。UI.selected が選択中のキャラ

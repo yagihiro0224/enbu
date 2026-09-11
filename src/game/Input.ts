@@ -51,6 +51,11 @@ export class Input {
   private knobEl: HTMLElement;
   private btnEls = new Map<Action, HTMLElement>();
   enabled = false;
+  private rootEl!: HTMLElement;
+  /** タイトルやリザルトでは操作 UI を隠す（左半分のスティック領域がボタンのタップを横取りするため） */
+  setVisible(v: boolean) {
+    this.rootEl.style.display = v ? '' : 'none';
+  }
 
   constructor(parent: HTMLElement) {
     const style = document.createElement('style');
@@ -68,6 +73,8 @@ export class Input {
         <div class="btn" id="b-shoot" data-a="shoot"><span>射<small>I</small></span></div>
       </div>`;
     parent.appendChild(root);
+    this.rootEl = root;
+    root.style.display = 'none';
     this.stickEl = root.querySelector('#stick')!;
     this.knobEl = root.querySelector('#knob')!;
     const zone = root.querySelector('#stick-zone') as HTMLElement;

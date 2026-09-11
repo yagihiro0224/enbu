@@ -45,6 +45,11 @@ const CSS = `
 .charcard b { display: block; font-size: 22px; letter-spacing: 0.2em; }
 .charcard small { display: block; font-size: 10px; letter-spacing: 0.3em; color: #ffd6c0; margin-top: 4px; }
 .charcard:hover, .charcard:active { transform: scale(1.05); border-color: #ffb347; }
+.charcard.selected { border-color: #ffb347; background: linear-gradient(180deg, rgba(255,120,60,0.55), rgba(160,30,20,0.7)); box-shadow: 0 0 18px rgba(255,150,80,0.5); }
+#startbtn { pointer-events: auto; margin-top: 22px; font-size: 22px; font-weight: 900; padding: 14px 44px; border-radius: 34px; border: 2px solid #ffe0a0;
+  background: linear-gradient(180deg, #ffb347, #ff5a2a); color: #fff; letter-spacing: 0.3em; font-family: inherit; cursor: pointer; box-shadow: 0 0 22px rgba(255,120,60,0.6); }
+#startbtn:active { transform: scale(0.95); }
+#startbtn.hidden { display: none; }
 .overlay .hint { margin-top: 18px; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; }
 #swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 44px); pointer-events: auto;
   width: 64px; height: 44px; border-radius: 22px; border: 2px solid rgba(255,255,255,0.5); background: rgba(40,10,25,0.55); color: #fff; font-family: inherit;
@@ -111,7 +116,8 @@ export class UI {
           <button class="charcard" data-char="mahiro"><b>深川まひろ</b><small>FUKAGAWA MAHIRO</small></button>
           <button class="charcard" data-char="chisato"><b>杉本ちさと</b><small>SUGIMOTO CHISATO</small></button>
         </div>
-        <div class="hint">キャラクターを選んで開始 ／ ゲーム中は「交代」でいつでも入れ替え</div>
+        <button id="startbtn" class="hidden">ゲーム開始</button>
+        <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
       </div>
       <button id="swap" class="hidden"><span>交代</span><small>Q</small></button>
       <div class="overlay hidden" id="result">
@@ -140,9 +146,13 @@ export class UI {
     this.loadingEl = q('#loading');
     this.charsel = q('#charsel');
     this.swapBtn = q('#swap');
-    for (const b of hud.querySelectorAll<HTMLElement>('.charcard')) {
-      b.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(b.dataset.char as CharId); });
+    this.cards = Array.from(hud.querySelectorAll<HTMLElement>('.charcard'));
+    for (const b of this.cards) {
+      b.addEventListener('click', (e) => { e.stopPropagation(); this.select(b.dataset.char as CharId); });
     }
+    this.startBtn = q('#startbtn');
+    this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(this.selected); });
+    this.select('mahiro');
     this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });
     q('#retry').addEventListener('click', () => this.onRetry());
   }
@@ -151,12 +161,24 @@ export class UI {
   private loadingEl: HTMLElement;
   private charsel: HTMLElement;
   private swapBtn: HTMLElement;
+  private cards: HTMLElement[] = [];
+  private startBtn: HTMLElement;
+  selected: CharId = 'mahiro';
   onSwap: () => void = () => {};
+  /** タイトルでキャラを選んだとき（背景のキャラを差し替える用） */
+  onSelect: (c: CharId) => void = () => {};
+
+  private select(c: CharId) {
+    this.selected = c;
+    for (const b of this.cards) b.classList.toggle('selected', b.dataset.char === c);
+    this.onSelect(c);
+  }
 
   /** 読み込み完了後にキャラ選択を出す */
   setReady(ready: boolean) {
     this.loadingEl.style.display = ready ? 'none' : '';
     this.charsel.classList.toggle('hidden', !ready);
+    this.startBtn.classList.toggle('hidden', !ready);
   }
   setPlayerName(name: string) { this.playerName.textContent = name; }
   setSwapVisible(v: boolean) { this.swapBtn.classList.toggle('hidden', !v); }
