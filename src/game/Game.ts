@@ -16,7 +16,7 @@ import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
 import { Items } from './Items';
 import { Music } from './Music';
-import { Bgm, findBgmFiles } from './Bgm';
+import { Bgm, findBgmFiles, trimRange } from './Bgm';
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -250,6 +250,24 @@ export class Game {
         console.info(`musictest lv${lv}: peak=${peak.toFixed(3)} rms=${Math.sqrt(sum / d.length).toFixed(4)}`);
       }
     }
+    // ?bgmtest で mp3 の BGM を調べる。読めているか、無音の除去位置、音量を数値で出す
+    if (q.has('bgmtest')) {
+      const files = await this.bgmProbe;
+      console.info(`bgmtest files: ${files ? files.join(', ') : '(なし。合成 BGM を使う)'}`);
+      for (const name of files ?? []) {
+        const res = await fetch(`${import.meta.env.BASE_URL}audio/${name}`);
+        const off = new OfflineAudioContext(1, 44100, 44100);
+        const buf = await off.decodeAudioData(await res.arrayBuffer());
+        const r = trimRange(buf);
+        const d = buf.getChannelData(0);
+        let peak = 0, sum = 0;
+        for (let i = 0; i < d.length; i++) { const v = Math.abs(d[i]); if (v > peak) peak = v; sum += d[i] * d[i]; }
+        console.info(
+          `bgmtest ${name}: ${buf.duration.toFixed(1)}s trim=${r.start.toFixed(2)}..${r.end.toFixed(2)}s ` +
+          `peak=${peak.toFixed(3)} rms=${Math.sqrt(sum / d.length).toFixed(4)}`
+        );
+      }
+    }
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
@@ -413,10 +431,20 @@ export class Game {
     void this.bgmProbe.then((files) => {
       this.musicPending = false;
       if (this.music) return;
-      this.music = files ? new Bgm(a.ctx, a.dest, files) : new Music(a.ctx, a.dest, a.noise);
+      const bgm = files ? new Bgm(a.ctx, a.dest, files) : null;
+      this.music = bgm ?? new Music(a.ctx, a.dest, a.noise);
       this.music.setMuted(!this.ui.musicOn);
       this.music.start();
       this.music.setIntensity(this.musicLv);
+      // mp3 が読めなかったら合成 BGM に戻す
+      if (bgm) void bgm.ready().then((ok) => {
+        if (ok || this.music !== bgm) return;
+        bgm.dispose();
+        this.music = new Music(a.ctx, a.dest, a.noise);
+        this.music.setMuted(!this.ui.musicOn);
+        this.music.start();
+        this.music.setIntensity(this.musicLv);
+      });
     });
   }
 

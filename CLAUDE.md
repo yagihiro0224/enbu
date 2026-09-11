@@ -298,10 +298,17 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 
 - `public/audio/` に mp3 を置くと `Bgm.ts` がそれを鳴らし、合成 BGM（Music.ts）は使われなくなる。
   `bgm.mp3` が無ければ従来どおり合成 BGM のまま（`findBgmFiles()` が null を返す）
-- ファイル名と用途: `bgm.mp3` 戦闘（必須）、`bgm_calm.mp3` タイトルとリザルト、`bgm_hard.mp3` ボス第 3 形態。
-  後ろ 2 つは任意で、無ければ `bgm.mp3` を音量違いで使う
-- ループは AudioBufferSourceNode の `loop` なので継ぎ目が出ない。曲が変わるときだけ 0.9 秒重ねて入れ替える
+- 探す名前は `Bgm.ts` の `FILES`（候補の配列。先に見つかったものを使う）。
+  戦闘は `boss_battle_bgm_001.MP3`（ユーザー提供、2026-09-11）→ `bgm.mp3` の順。静か `bgm_calm.mp3`、終盤 `bgm_hard.mp3` は任意で、
+  無ければ戦闘曲を音量違いで使う。**大文字小文字も一致させること**
+- ループは AudioBufferSourceNode の `loop`。曲が変わるときだけ 0.9 秒重ねて入れ替える
+- **書き出した mp3 は前後に無音が付くのでそのままループすると継ぎ目で音が切れる**。`trimRange()` が -48dB を境に
+  実音の範囲を探し、`loopStart` / `loopEnd` に入れている。boss_battle_bgm_001.MP3 は 202.84 秒のうち 0.44〜201.12 秒を使う
+- mp3 が読めなかったときは `Bgm.ready()` が false を返し、Game が合成 BGM に差し替える
 - **開発サーバーは存在しないパスに index.html を返す**ので、HEAD の結果は content-type も見て弾いている
 - 濃さの指定は Game の `setMusicLv()` に集約した。音が開く前の指定も覚えて、BGM ができた時点で反映する
-- 音量は Bgm.ts の `GAINS`（0.38 / 0.62 / 0.7）。Sfx の master 0.5 を通るので、実際はこの半分
+- 音量は Bgm.ts の `GAINS`（0.55 / 0.95 / 1.1）。Sfx の master 0.5 を通るので実際はこの半分。
+  提供曲は max -9.4dB / mean -24.3dB なので、合成 BGM（ピーク 0.39）と釣り合うこの値にした
+- **検証は `?bgmtest`**。置かれているファイル名を出す。ただし**仮想時間下では decodeAudioData が返らない**ので
+  （createImageBitmap と同じ）、長さ・無音位置・音量の数値までは出ない。無音位置は ffmpeg で PCM に落として同じ走査を回して確かめた
 - **Suno の無料プランは曲のダウンロードができない**（2026-09-11 に上限到達を確認）。無料プランの曲は商用利用の権利も付かない

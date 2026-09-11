@@ -1,10 +1,10 @@
 /**
  * 音声ファイルの BGM。`public/audio/` に mp3 を置くと合成 BGM の代わりに鳴る。
  *
- * 置けるファイル（すべて任意。bgm.mp3 だけは必須）:
- *   bgm.mp3       戦闘（これが無ければ合成 BGM のまま）
- *   bgm_calm.mp3  タイトルとリザルト。無ければ bgm.mp3 を小さく鳴らす
- *   bgm_hard.mp3  ボス第 3 形態。無ければ bgm.mp3 のまま
+ * 探すファイル名は下の FILES にある。戦闘曲が無ければ合成 BGM のまま。
+ *   戦闘    boss_battle_bgm_001.MP3（ユーザー提供）または bgm.mp3
+ *   静か    bgm_calm.mp3  タイトルとリザルト。無ければ戦闘曲を小さく鳴らす
+ *   終盤    bgm_hard.mp3  ボス第 3 形態。無ければ戦闘曲のまま
  *
  * ループは AudioBufferSourceNode の loop なので継ぎ目が出ない。
  * 曲が変わるときだけ重ねて入れ替える。
@@ -12,26 +12,56 @@
 
 export type Intensity = 0 | 1 | 2;
 
-/** 濃さごとに使うファイル名 */
-const FILES: Record<Intensity, string> = {
-  0: 'bgm_calm.mp3',
-  1: 'bgm.mp3',
-  2: 'bgm_hard.mp3',
+/**
+ * 濃さごとに探すファイル名。先に見つかったものを使う。
+ * 実際に置いてある名前をそのまま書いてよい（拡張子の大小も区別される）。
+ */
+const FILES: Record<Intensity, string[]> = {
+  0: ['bgm_calm.mp3'],
+  1: ['boss_battle_bgm_001.MP3', 'bgm.mp3'],
+  2: ['bgm_hard.mp3'],
 };
 
-/** 濃さごとの音量。Sfx の master 0.5 を通った後の値になる */
-const GAINS: Record<Intensity, number> = { 0: 0.38, 1: 0.62, 2: 0.7 };
+/**
+ * 濃さごとの音量。Sfx の master 0.5 を通るので、実際はこの半分になる。
+ * 合成 BGM（ピーク 0.39 前後）と釣り合う値にしてある。
+ */
+const GAINS: Record<Intensity, number> = { 0: 0.55, 1: 0.95, 2: 1.1 };
 
 const CROSSFADE = 0.9; // 秒
 
 const url = (name: string) => `${import.meta.env.BASE_URL}audio/${name}`;
+
+/** 無音とみなす振幅。-48dB 相当 */
+const SILENCE = 0.004;
+
+/**
+ * 曲の前後の無音を探す。
+ * 書き出した mp3 は頭と尻に無音が付くことが多く、そのままループすると継ぎ目で音が途切れる。
+ * 粗く走査してから、その手前を細かく見て境目を決める。
+ */
+export function trimRange(buf: AudioBuffer): { start: number; end: number } {
+  const ch = buf.getChannelData(0);
+  const n = ch.length;
+  const stride = 64;
+  let head = 0;
+  for (let i = 0; i < n; i += stride) {
+    if (Math.abs(ch[i]) > SILENCE) { head = Math.max(0, i - stride); break; }
+  }
+  let tail = n - 1;
+  for (let i = n - 1; i >= 0; i -= stride) {
+    if (Math.abs(ch[i]) > SILENCE) { tail = Math.min(n - 1, i + stride); break; }
+  }
+  if (tail <= head) return { start: 0, end: buf.duration };
+  return { start: head / buf.sampleRate, end: (tail + 1) / buf.sampleRate };
+}
 
 /**
  * 置かれている mp3 を調べる。無ければ null を返すので、呼び出し側は合成 BGM に落とす。
  * 起動を止めないよう、戦闘曲の有無だけを待てば良い作りにしてある。
  */
 export async function findBgmFiles(): Promise<string[] | null> {
-  const names = Object.values(FILES);
+  const names = Object.values(FILES).flat();
   const found = await Promise.all(
     names.map(async (n) => {
       try {
@@ -45,13 +75,16 @@ export async function findBgmFiles(): Promise<string[] | null> {
     })
   );
   const list = found.filter((n): n is string => n !== null);
-  return list.includes(FILES[1]) ? list : null;
+  // 戦闘曲が無ければ合成 BGM のまま
+  return FILES[1].some((n) => list.includes(n)) ? list : null;
 }
 
 export class Bgm {
   private ctx: BaseAudioContext;
   private bus: GainNode;
   private buffers = new Map<string, AudioBuffer>();
+  /** 曲ごとの、無音を除いた再生範囲 */
+  private ranges = new Map<string, { start: number; end: number }>();
   private available: Set<string>;
   private src: AudioBufferSourceNode | null = null;
   private srcGain: GainNode | null = null;
@@ -59,6 +92,9 @@ export class Bgm {
   private intensity: Intensity = 0;
   private started = false;
   private muted = false;
+  /** 最初の曲を鳴らせたか。失敗したら呼び出し側が合成 BGM に戻す */
+  private firstLoad: Promise<boolean>;
+  private settleFirst: (ok: boolean) => void = () => {};
 
   constructor(ctx: BaseAudioContext, dest: AudioNode, available: string[]) {
     this.ctx = ctx;
@@ -66,6 +102,12 @@ export class Bgm {
     this.bus = ctx.createGain();
     this.bus.gain.value = 0;
     this.bus.connect(dest);
+    this.firstLoad = new Promise((res) => { this.settleFirst = res; });
+  }
+
+  /** 最初の曲が鳴り出せたかを返す。false なら合成 BGM に切り替えること */
+  ready() {
+    return this.firstLoad;
   }
 
   start() {
@@ -98,8 +140,8 @@ export class Bgm {
 
   /** その濃さで実際に鳴らすファイル名。無ければ戦闘曲に落とす */
   private pick(v: Intensity) {
-    const want = FILES[v];
-    return this.available.has(want) ? want : FILES[1];
+    const want = FILES[v].find((n) => this.available.has(n));
+    return want ?? FILES[1].find((n) => this.available.has(n))!;
   }
 
   private async load(name: string) {
@@ -108,6 +150,7 @@ export class Bgm {
     const res = await fetch(url(name));
     const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
     this.buffers.set(name, buf);
+    this.ranges.set(name, trimRange(buf));
     return buf;
   }
 
@@ -128,7 +171,8 @@ export class Bgm {
     try {
       buf = await this.load(name);
     } catch {
-      return; // 読めなければ何も鳴らさない
+      this.settleFirst(false); // 読めなかった。呼び出し側が合成 BGM に戻す
+      return;
     }
     // 待っている間に切り替わっていたら諦める（後から来た apply が正しい）
     if (!this.started || this.pick(this.intensity) !== name) return;
@@ -144,8 +188,12 @@ export class Bgm {
     const s = this.ctx.createBufferSource();
     s.buffer = buf;
     s.loop = true;
+    // 前後の無音を飛ばしてループさせる
+    const r = this.ranges.get(name) ?? { start: 0, end: buf.duration };
+    s.loopStart = r.start;
+    s.loopEnd = r.end;
     s.connect(g);
-    s.start(t);
+    s.start(t, r.start);
     this.src = s;
     this.srcGain = g;
     this.playing = name;
@@ -160,5 +208,13 @@ export class Bgm {
     this.bus.gain.cancelScheduledValues(t);
     this.bus.gain.setValueAtTime(this.bus.gain.value, t);
     this.bus.gain.linearRampToValueAtTime(vol, t + CROSSFADE);
+    this.settleFirst(true);
+  }
+
+  /** 合成 BGM に戻すときに音を止めて切り離す */
+  dispose() {
+    this.started = false;
+    try { this.src?.stop(); } catch { /* すでに止まっている */ }
+    this.bus.disconnect();
   }
 }
