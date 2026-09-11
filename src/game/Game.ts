@@ -16,6 +16,7 @@ import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
 import { Items } from './Items';
 import { Music } from './Music';
+import { Bgm, findBgmFiles } from './Bgm';
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -52,7 +53,13 @@ export class Game {
   private items = new Items(ARENA_R, 3);
   /** 体力はキャラごとに持つ。控えは少しずつ回復する */
   private charHp: Record<CharId, number> = { mahiro: 100, chisato: 100 };
-  private music: Music | null = null;
+  /** 合成 BGM か、public/audio の mp3 のどちらか */
+  private music: Music | Bgm | null = null;
+  /** 置かれている mp3 を調べる非同期処理。起動は止めない */
+  private bgmProbe: Promise<string[] | null> = findBgmFiles();
+  private musicPending = false;
+  /** 音が開く前に指定された濃さを覚えておく */
+  private musicLv: 0 | 1 | 2 = 0;
   private composer: EffectComposer;
   private bloomOn = true;
   private lowFpsSec = 0;
@@ -130,7 +137,7 @@ export class Game {
     this.ui.onRetry = () => this.restart();
     this.ui.onSwap = () => this.swap();
     // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
-    this.ui.onGesture = () => { this.ensureMusic(); this.music?.setIntensity(0); };
+    this.ui.onGesture = () => { this.ensureMusic(); this.setMusicLv(0); };
     this.ui.onMusicToggle = (on) => this.music?.setMuted(!on);
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
@@ -387,15 +394,30 @@ export class Game {
     this.sfx.teleport();
   }
 
-  /** 音が開けていれば BGM を用意する */
+  /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */
+  private setMusicLv(v: 0 | 1 | 2) {
+    this.musicLv = v;
+    this.music?.setIntensity(v);
+  }
+
+  /**
+   * 音が開けていれば BGM を用意する。
+   * public/audio に mp3 があればそれを、無ければ合成 BGM を鳴らす。
+   */
   private ensureMusic() {
     this.sfx.unlock();
-    if (this.music) return;
+    if (this.music || this.musicPending) return;
     const a = this.sfx.audio;
     if (!a) return;
-    this.music = new Music(a.ctx, a.dest, a.noise);
-    this.music.setMuted(!this.ui.musicOn);
-    this.music.start();
+    this.musicPending = true;
+    void this.bgmProbe.then((files) => {
+      this.musicPending = false;
+      if (this.music) return;
+      this.music = files ? new Bgm(a.ctx, a.dest, files) : new Music(a.ctx, a.dest, a.noise);
+      this.music.setMuted(!this.ui.musicOn);
+      this.music.start();
+      this.music.setIntensity(this.musicLv);
+    });
   }
 
   private start(char: CharId) {
@@ -436,7 +458,7 @@ export class Game {
     this.ui.setPlaying(true);
     this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
     this.refreshRest();
-    this.music?.setIntensity(1);
+    this.setMusicLv(1);
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }
 
@@ -449,7 +471,7 @@ export class Game {
     this.input.reset();
     this.input.setVisible(false);
     this.ui.setSwapVisible(false);
-    this.music?.setIntensity(0);
+    this.setMusicLv(0);
     this.ctx.hitstop(2.2, 0.3);
     this.score = computeScore({
       hits: this.player.meleeHits,
@@ -555,7 +577,7 @@ export class Game {
     this.boss.update(dt, this.ctx, playing);
     this.items.update(dt, this.ctx, playing);
     // 終盤は曲を厚くする
-    if (playing) this.music?.setIntensity(this.boss.phase >= 3 ? 2 : 1);
+    if (playing) this.setMusicLv(this.boss.phase >= 3 ? 2 : 1);
     // 控えているキャラは少しずつ回復する
     if (playing) {
       const other: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';

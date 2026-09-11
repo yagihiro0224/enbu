@@ -293,3 +293,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - `Sfx.bindTo(ctx, dest)` で OfflineAudioContext に繋げる。**検証は `?sfxtest`**（`?sfxtest=ping` のように名前で絞れる）。
   実測 whooshHeavy 0.148 / thud 0.501 / heavyHit 0.177 / whooshSharp 0.182 / sharpHit 0.291 / sharpHitHeavy 0.439 / bossShoot 0.107（master 0.5 の前）
 - 音を変えたら必ず `?sfxtest` で測る。耳で確認できないので数値が唯一の裏づけ
+
+## 音声ファイルの BGM（2026-09-11）
+
+- `public/audio/` に mp3 を置くと `Bgm.ts` がそれを鳴らし、合成 BGM（Music.ts）は使われなくなる。
+  `bgm.mp3` が無ければ従来どおり合成 BGM のまま（`findBgmFiles()` が null を返す）
+- ファイル名と用途: `bgm.mp3` 戦闘（必須）、`bgm_calm.mp3` タイトルとリザルト、`bgm_hard.mp3` ボス第 3 形態。
+  後ろ 2 つは任意で、無ければ `bgm.mp3` を音量違いで使う
+- ループは AudioBufferSourceNode の `loop` なので継ぎ目が出ない。曲が変わるときだけ 0.9 秒重ねて入れ替える
+- **開発サーバーは存在しないパスに index.html を返す**ので、HEAD の結果は content-type も見て弾いている
+- 濃さの指定は Game の `setMusicLv()` に集約した。音が開く前の指定も覚えて、BGM ができた時点で反映する
+- 音量は Bgm.ts の `GAINS`（0.38 / 0.62 / 0.7）。Sfx の master 0.5 を通るので、実際はこの半分
+- **Suno の無料プランは曲のダウンロードができない**（2026-09-11 に上限到達を確認）。無料プランの曲は商用利用の権利も付かない
