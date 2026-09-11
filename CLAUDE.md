@@ -168,3 +168,6 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - リザルトの立ち絵は `public/images/<mahiro|chisato>_cap.png`。無ければ枠ごと非表示（img の error で .noimg）
 - 動作確認: `?t=1&win=42&sec=52&mp=3&bp=7`（勝ちリザルト）、`&lose` で負け、`&dmg` で被弾あり、`&char=chisato` で勝者を変更。
   注意: この debug 経路は同期ループのため、ヘッドレスだと overlay のフェード途中で撮れて全体が半透明に写ることがある（実機では問題ない）
+
+- **開始時に requestFullscreen は呼ばない**（2026-09-11 ユーザー指示「急に全画面になるのはやめたい」）。画面の向きのロックも同時に廃止した。
+  なお `public/manifest.webmanifest` の `display: fullscreen` はホーム画面に追加して起動したときだけ効くもので、プレイ中の切り替えとは別物。

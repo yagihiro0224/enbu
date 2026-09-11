@@ -272,7 +272,6 @@ export class Game {
     this.sfx.unlock();
     this.sfx.start();
     this.ui.hideTitle();
-    this.tryFullscreen();
     this.beginPlay();
   }
 
@@ -355,17 +354,6 @@ export class Game {
     this.partner.rig.root.position.set(0, 0, 0);
     this.partner.rig.root.rotation.y = 0;
     this.partner = null;
-  }
-
-  private tryFullscreen() {
-    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
-    try {
-      const p = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
-      p?.then(() => {
-        const o = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-        o.lock?.('landscape').catch(() => {});
-      }).catch(() => {});
-    } catch { /* iOS では不可 */ }
   }
 
   private frame() {
