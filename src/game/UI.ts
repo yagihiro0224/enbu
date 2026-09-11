@@ -109,15 +109,20 @@ const CSS = `
 #res-cap::after { content: ''; position: absolute; inset: -8px; border-radius: 18px; pointer-events: none;
   box-shadow: 0 0 26px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.35); opacity: 0.55; }
 #res-cap.noimg { display: none; }
-#res-lines { flex: 1 1 auto; min-width: 0; }
+#res-lines { flex: 1 1 auto; min-width: 0; animation: rkfade 0.45s ease-out 0.1s backwards; }
 .res-line { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.12);
-  opacity: 1; animation: rkfade 0.3s ease-out backwards; }
+  opacity: 1; }
 .res-line .l { font-size: 13px; color: #ffd6c0; letter-spacing: 0.08em; white-space: nowrap; }
 .res-line .d { font-size: 11px; color: rgba(255,255,255,0.45); flex: 1 1 auto; text-align: left; }
 .res-line .p { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
 .res-line.zero .l, .res-line.zero .p { opacity: 0.4; }
 .res-line.big .l { color: #ffe08a; }
 .res-line.big .p { color: #ffe08a; text-shadow: 0 0 12px rgba(255,210,90,0.8); }
+.res-line.sum { border-bottom: none; padding-top: 8px; }
+.res-line.sum .l, .res-line.sum .p { color: rgba(255,255,255,0.72); }
+.res-line.mult { border-bottom: none; }
+.res-line.mult .l { color: #9ad8ff; }
+.res-line.mult .p { color: #9ad8ff; font-size: 17px; text-shadow: 0 0 12px rgba(120,200,255,0.7); }
 #res-total { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-top: 4px;
   padding-top: 8px; border-top: 2px solid rgba(255,255,255,0.35); }
 #res-total span { font-size: 12px; letter-spacing: 0.4em; color: #ffd6c0; }
@@ -136,14 +141,17 @@ const CSS = `
   .rk-lv1 .rk-name { font-size: clamp(19px, 3vw, 30px); }
   .rk-lv0 .rk-name { font-size: clamp(17px, 2.6vw, 26px); }
   #res-body { gap: 14px; }
-  #res-cap { width: clamp(66px, 10vw, 112px); }
-  .res-line { padding: 2px 0; }
-  .res-line .l { font-size: 12px; }
-  .res-line .p { font-size: 13px; }
+  #res-cap { width: clamp(60px, 9vw, 100px); }
+  .res-line { padding: 1px 0; }
+  .res-line .l { font-size: 11px; }
+  .res-line .d { font-size: 10px; }
+  .res-line .p { font-size: 12px; }
+  .res-line.mult .p { font-size: 14px; }
+  .res-line.sum { padding-top: 4px; }
   #res-total { padding-top: 5px; margin-top: 2px; }
   #res-total b { font-size: clamp(22px, 3.4vw, 38px); }
   #res-total span { font-size: 10px; letter-spacing: 0.25em; }
-  #res-stats { font-size: 10px; }
+  #res-stats { display: none; }
   #result .btnrow { margin-top: 6px; }
   #result .overlay button, #result button { font-size: 15px; padding: 8px 24px; }
 }
@@ -367,10 +375,16 @@ export class UI {
     this.resRankSub.textContent = score.rank.sub;
 
     // 明細（0 点の行も内訳が分かるよう残し、薄く表示）
-    this.resLines.innerHTML = score.lines.map((l, i) => `
-      <div class="res-line${l.points === 0 ? ' zero' : ''}${l.big ? ' big' : ''}" style="animation-delay:${80 + i * 40}ms">
+    this.resLines.innerHTML = score.lines.map((l) => `
+      <div class="res-line${l.points === 0 ? ' zero' : ''}${l.big ? ' big' : ''}">
         <span class="l">${l.label}</span><span class="d">${l.detail}</span><span class="p">${l.points.toLocaleString()}</span>
-      </div>`).join('');
+      </div>`).join('') + `
+      <div class="res-line sum">
+        <span class="l">小計</span><span class="d"></span><span class="p">${score.base.toLocaleString()}</span>
+      </div>
+      <div class="res-line mult">
+        <span class="l">コンボ倍率</span><span class="d">最大コンボ ${score.maxCombo}</span><span class="p">× ${score.mult.toFixed(2)}</span>
+      </div>`;
 
     // 勝ったキャラの立ち絵のみ表示
     this.resCap.classList.toggle('noimg', !win);
@@ -382,7 +396,7 @@ export class UI {
     this.resultStats.textContent = `TIME ${seconds.toFixed(1)}s ／ MAX COMBO ${maxCombo}`;
     this.hud.classList.add('result-on');
     this.result.classList.remove('hidden');
-    this.countUp(score.total, 420 + score.lines.length * 40);
+    this.countUp(score.total, 500 + score.lines.length * 40);
   }
 
   /** 合計スコアを数え上げる */

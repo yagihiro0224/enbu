@@ -26,6 +26,11 @@ export interface ScoreLine {
 
 export interface ScoreResult {
   lines: ScoreLine[];
+  /** ボーナスの合計（倍率をかける前） */
+  base: number;
+  /** コンボ倍率 1.0〜3.0 */
+  mult: number;
+  maxCombo: number;
   total: number;
   rank: Rank;
 }
@@ -44,18 +49,25 @@ export const MELEE_PARRY_PT = 500_000;
 export const BULLET_PARRY_PT = 100_000;
 export const NO_DAMAGE_PT = 10_000_000;
 
-/**
- * 称号のしきい値。
- * ユーザー指定は「一般人人間 1000万以下 / 下手人間 1000万未満」で境界が重なっていたため、
- * 上級者人間 = 1000万以上とし、その下を 300万で分けている。
- */
+/** 称号のしきい値（2026-09-11 ユーザー確定） */
 export const RANKS: (Rank & { min: number })[] = [
   { id: 'kami', name: '神人間', sub: 'GOD', level: 4, min: 100_000_000 },
   { id: 'oni', name: '鬼人間', sub: 'DEMON', level: 3, min: 50_000_000 },
   { id: 'jokyusha', name: '上級者人間', sub: 'EXPERT', level: 2, min: 10_000_000 },
-  { id: 'ippan', name: '一般人人間', sub: 'ORDINARY', level: 1, min: 3_000_000 },
+  { id: 'ippan', name: '一般人人間', sub: 'ORDINARY', level: 1, min: 5_000_000 },
   { id: 'heta', name: '下手人間', sub: 'ROOKIE', level: 0, min: 0 },
 ];
+
+/**
+ * コンボ倍率。ボーナスの合計にこれを掛ける。
+ * ボスの体力から打撃は 70 発前後が上限で、ボーナスの合計は最大でも 3700 万ほど。
+ * そのままでは鬼人間（5000万）に届かず神人間（1億）は出せないので、
+ * 途切れずに攻め続けた分を倍率にして上位へ届くようにしている（最大コンボ 80 で 3 倍）。
+ */
+export const MULT_CAP_COMBO = 80;
+export function comboMult(maxCombo: number): number {
+  return 1 + Math.min(maxCombo, MULT_CAP_COMBO) / 40;
+}
 
 /** クリアタイムのボーナス */
 function timeBonus(sec: number): { pt: number; label: string } {
@@ -96,7 +108,9 @@ export function computeScore(i: ScoreInput): ScoreResult {
     points: i.noDamage ? NO_DAMAGE_PT : 0,
     big: i.noDamage,
   });
-  const total = lines.reduce((a, l) => a + l.points, 0);
+  const base = lines.reduce((a, l) => a + l.points, 0);
+  const mult = comboMult(i.maxCombo);
+  const total = Math.round(base * mult);
   const rank = RANKS.find((r) => total >= r.min) ?? RANKS[RANKS.length - 1];
-  return { lines, total, rank };
+  return { lines, base, mult, maxCombo: i.maxCombo, total, rank };
 }
