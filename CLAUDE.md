@@ -247,3 +247,14 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 右上の ♪ ボタンで切り替え。設定は localStorage の `enbu.music` に覚える
 - **検証**: `?musictest`（または `?musictest=2` で 1 段階だけ）で OfflineAudioContext に描き出し、peak と rms を console に出す。
   実測 lv0 peak 0.122 / lv1 0.360 / lv2 0.403（Sfx の master 0.5 を通る前の値）
+
+## ボスの VRM（2026-09-11）
+
+- `public/models/boss_001.vrm`（ユーザー自作、17.9MB / 4.9 万ポリゴン）。`vroid/model_boss_001.vroid` が元データ
+- `tryLoadVrm(url, { weapon: 'staff' })` で杖を右手に持たせる。**VRM は等身大なので杖は 0.6 倍に縮め、
+  Z を 180 度回して腕を下ろしたときに上を向くようにしてある**
+- `Boss.setRig()` を追加。**VRM は身長を揃えるため root を縮めているので、`baseScale` を覚えて
+  reset と消滅演出のスケールに掛ける**（1 に戻すと巨大化する）
+- ボスの VRM は `await` せず裏で読み込む。タイトルを早く出すため。読めた時点で差し替わる
+- **3 体で約 46MB**。スマホの初回読み込みが重いので、VRoid の書き出しでポリゴン削減とテクスチャ統合を
+  有効にしてもらうのが next step

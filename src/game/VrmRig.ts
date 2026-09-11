@@ -2,12 +2,13 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import type { Rig } from './Rig';
+import { createStaff, type Weapon } from './Weapons';
 
 /**
  * public/models/player.vrm があれば読み込んで Rig にする。無ければ null。
  * VRoid Studio で作ったキャラを置くだけで差し替えられる。
  */
-export async function tryLoadVrm(url: string): Promise<Rig | null> {
+export async function tryLoadVrm(url: string, opts: { weapon?: 'staff' } = {}): Promise<Rig | null> {
   try {
     const head = await fetch(url, { method: 'HEAD' });
     if (!head.ok) return null;
@@ -81,6 +82,17 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     });
   };
 
+  // 武器（ボスの杖など）。指定があれば右手に持たせる
+  let weapon: Weapon | null = null;
+  if (opts.weapon === 'staff') {
+    weapon = createStaff();
+    // 杖は腕の軸に沿って伸びるので、180 度回して腕を下ろしたときに上を向くようにする。
+    // VRM は等身大なので、そのままでは長すぎる
+    weapon.group.scale.setScalar(0.6);
+    weapon.group.rotation.z = Math.PI;
+    get('rightHand').add(weapon.group);
+  }
+
   return {
     root,
     hips,
@@ -95,7 +107,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     upperLegR: get('rightUpperLeg'),
     lowerLegR: get('rightLowerLeg'),
     handR: get('rightHand'),
-    weapon: null,
+    weapon,
     hairBones: [],
     hipsHeight: hips.position.y,
     height: 1.6,
@@ -105,8 +117,8 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
         else { m.emissive.copy(base); m.emissiveIntensity = baseI; }
       }
     },
-    setWeaponGlow() {
-      // 素手なので光らせる武器はない
+    setWeaponGlow(v) {
+      weapon?.setGlow(v);
     },
     setFist(l, r) {
       curl(fL, 1, l);

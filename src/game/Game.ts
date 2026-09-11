@@ -151,6 +151,10 @@ export class Game {
     if (!model && !q.has('novrm')) {
       // VRM が読み込まれるまで仮のプリミティブ体型は見せない（選択前はまひろを表示する）
       this.player.group.visible = false;
+      // ボスの VRM は待たない。読めた時点で差し替える（タイトルを早く出すため）
+      void tryLoadVrm(`${import.meta.env.BASE_URL}models/boss_001.vrm`, { weapon: 'staff' })
+        .then((rig) => { if (rig) { this.boss.setRig(rig); castShadows(rig.root); } })
+        .catch((e) => console.warn('ボスの VRM 読み込みに失敗', e));
       const ids = Object.keys(CHARS) as CharId[];
       const loaded = await Promise.all(ids.map(async (id) => {
         try {

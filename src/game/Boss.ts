@@ -49,10 +49,26 @@ export class Boss {
   private tmp2 = new THREE.Vector3();
   private circle: THREE.Mesh | null = null;
 
+  /** VRM は身長を揃えるために root を縮めてある。その倍率を覚えておく */
+  private baseScale = 1;
+
   constructor(public rig: Rig) {
     this.group.add(rig.root);
     this.group.add(blobShadow(0.7));
     this.anim = new Animator(rig);
+    this.baseScale = rig.root.scale.x;
+  }
+
+  /** 見た目を差し替える（VRM など） */
+  setRig(rig: Rig) {
+    this.group.remove(this.rig.root);
+    this.rig.dispose();
+    this.rig = rig;
+    this.group.add(rig.root);
+    this.anim = new Animator(rig);
+    this.baseScale = rig.root.scale.x;
+    rig.setFlash(0);
+    rig.setWeaponGlow(0);
   }
 
   /** 体力の上限を差し替える（検証用） */
@@ -79,7 +95,7 @@ export class Boss {
     this.gen = null;
     this.wait = 1.2;
     this.flash = this.glow = 0;
-    this.rig.root.scale.setScalar(1);
+    this.rig.root.scale.setScalar(this.baseScale);
     this.rig.root.visible = true;
     this.rig.setFlash(0);
     this.rig.setWeaponGlow(0);
@@ -480,7 +496,7 @@ export class Boss {
       // 消滅演出
       if (this.st > 0.4) {
         const s = Math.max(0, 1 - (this.st - 0.4) / 1.8);
-        this.rig.root.scale.setScalar(s);
+        this.rig.root.scale.setScalar(this.baseScale * s);
         if (s > 0 && Math.random() < 0.6) ctx.particles.emit(this.center, { color: Math.random() < 0.5 ? 0xffd0ff : 0xc060ff, count: 4, speed: 4, size: 0.25, life: 0.8, up: 2 });
         if (s <= 0) this.rig.root.visible = false;
       }
