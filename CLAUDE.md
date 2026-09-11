@@ -133,6 +133,16 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 敵の弾は Boss.ts の BULLET_DENSITY = 0.1 で 10 発に 1 発（ユーザー指示「攻撃球を 10 分の 1 に」）。fire() の累積カウンタで間引く
 - 動作確認: `?char=chisato`、`?t=2&swap`（交代を実行）
 
+## キャラ別の戦闘スタイル（2026-09-11）
+
+- Style.ts の `STYLES`。Player.style を Game.setChar で差し替える。攻撃定義・ポーズ関数・効果色・音・重さの倍率がここに集約
+- **まひろ = 重い・赤**（color 0xff3a2a）: 従来の 5 段（ジャブ→ナイフのフック→アッパー→ハイキック→ジャンプ回し蹴り）。
+  太い弧、地面の衝撃波、大きい火花、低い風切りと低音の着弾（Audio: whooshHeavy / slashHeavy / thud）。hitstop・shake・punch 1.4〜1.5 倍
+- **ちさと = 鋭い・紫**（color 0xa040ff）: 別モーション（刺突ジャブ→ナイフ斜め切り下ろし→切り上げ→前蹴り→地上回転切り、Anim.ts の poseAttackChisato）。
+  細い斬線（Fx.line）、速く小さい火花、高い風切りと金属的な着弾（whooshSharp / slashSharp / ping）。各段が短く、hitstop・shake は 0.6〜0.7 倍
+- 軌跡の付け先は AttackCfg.trail（fist / knife / leg）。軌跡の色は Trail.setColor で切替
+- 動作確認: `?char=chisato&combo&cam=side2` など
+
 ## 別の PC で始める手順
 
 1. `git clone https://github.com/yagihiro0224/enbu.git && cd enbu && npm install`

@@ -69,6 +69,38 @@ export class Sfx {
   whoosh(pitch = 1) {
     this.noise(0.12, { gain: 0.28, freq: 900 * pitch, end: 2600 * pitch, q: 0.6 });
   }
+  /** 重い風切り（まひろ）: 低くて長い */
+  whooshHeavy(pitch = 1) {
+    this.noise(0.2, { gain: 0.34, freq: 380 * pitch, end: 1500 * pitch, q: 0.7 });
+    this.tone(90 * pitch, 0.16, { type: 'sine', gain: 0.12, end: 50 });
+  }
+  /** 重い刃の振り（まひろのナイフ） */
+  slashHeavy() {
+    this.noise(0.22, { gain: 0.36, freq: 1800, end: 400, q: 0.8 });
+    this.tone(220, 0.12, { type: 'triangle', gain: 0.1, end: 90 });
+  }
+  /** 重い着弾: 低音の衝撃 */
+  thud(w = 1) {
+    this.noise(0.16 * w, { gain: 0.45, freq: 500, end: 120, type: 'lowpass' });
+    this.tone(64, 0.28 * w, { type: 'sine', gain: 0.35, end: 30 });
+    this.tone(140, 0.1, { type: 'square', gain: 0.12, end: 60 });
+  }
+  /** 鋭い風切り（ちさと）: 高くて短い */
+  whooshSharp(pitch = 1) {
+    this.noise(0.07, { gain: 0.26, freq: 2600 * pitch, end: 7000 * pitch, q: 0.9 });
+    this.tone(2400 * pitch, 0.05, { type: 'sine', gain: 0.06, end: 3600 * pitch });
+  }
+  /** 鋭い刃の振り（ちさとのナイフ） */
+  slashSharp(pitch = 1) {
+    this.noise(0.09, { gain: 0.3, freq: 5200 * pitch, end: 1800 * pitch, q: 1.4 });
+    this.tone(3000 * pitch, 0.07, { type: 'sine', gain: 0.08, end: 1200 * pitch });
+  }
+  /** 鋭い着弾: 金属的な高音 */
+  ping(pitch = 1, heavy = false) {
+    this.tone(1900 * pitch, heavy ? 0.16 : 0.09, { type: 'sine', gain: heavy ? 0.28 : 0.2, end: 800 * pitch });
+    this.noise(0.05, { gain: 0.3, freq: 6000, q: 3 });
+    if (heavy) this.tone(2800 * pitch, 0.3, { type: 'sine', gain: 0.12, delay: 0.02 });
+  }
   hit() {
     this.noise(0.12, { gain: 0.4, freq: 1200, end: 300, type: 'lowpass' });
     this.tone(180, 0.15, { type: 'square', gain: 0.18, end: 60 });

@@ -12,6 +12,7 @@ import { Boss } from './Boss';
 import { tryLoadVrm } from './VrmRig';
 import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
+import { STYLES } from './Style';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -219,6 +220,8 @@ export class Game {
     if (!rig) return false;
     if (this.player.rig !== rig) this.player.setRig(rig, true);
     this.current = id;
+    this.player.style = STYLES[id];
+    this.fx.playerTrail.setColor(STYLES[id].color, STYLES[id].sharp ? 2.8 : 2.0);
     this.ui.setPlayerName(CHARS[id].name);
     return true;
   }
@@ -229,9 +232,10 @@ export class Game {
     const next: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
     if (!this.rigs[next]) return;
     const c = this.player.center.clone();
+    const col = STYLES[next].hot;
     this.fx.flash(c, 0xffffff, 3.2, 0.25);
-    this.fx.ring(this.player.pos, 0xffd6c0, 2.5, 0.35);
-    this.particles.emit(c, { color: 0xffe0c0, count: 30, speed: 5, size: 0.22, life: 0.5 });
+    this.fx.ring(this.player.pos, col, 2.5, 0.35);
+    this.particles.emit(c, { color: col, count: 30, speed: 5, size: 0.22, life: 0.5 });
     this.setChar(next);
     this.player.invuln = Math.max(this.player.invuln, 0.5);
     this.swapCd = 1.2;

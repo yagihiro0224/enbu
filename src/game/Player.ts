@@ -1,22 +1,13 @@
 import * as THREE from 'three';
 import type { Rig } from './Rig';
-import { Animator, poseIdle, poseRun, poseAttack, poseDodge, poseParry, poseShoot, poseHit, poseDead, type Pose } from './Anim';
+import { Animator, poseIdle, poseRun, poseDodge, poseParry, poseShoot, poseHit, poseDead, type Pose } from './Anim';
+import { STYLES, type FightStyle, type Step } from './Style';
 import { blobShadow } from './Toon';
 import { clamp, damp, dampAngle, easeInCubic } from './util';
 import type { Ctx } from './Ctx';
 
 type State = 'idle' | 'run' | 'attack' | 'dodge' | 'parry' | 'hit' | 'dead';
 
-type Step = 1 | 2 | 3 | 4 | 5;
-interface AttackCfg { total: number; a0: number; a1: number; chain: number; dmg: number; poise: number; lunge: number; reach: number; kind: 'punch' | 'knife' | 'kick' | 'spin' }
-/** 格闘 5 段: ジャブ、フック（ナイフ）、アッパー、ハイキック、ジャンプ回し蹴り */
-const ATTACK: Record<Step, AttackCfg> = {
-  1: { total: 0.32, a0: 0.1, a1: 0.16, chain: 0.17, dmg: 6, poise: 8, lunge: 5.5, reach: 1.9, kind: 'punch' },
-  2: { total: 0.4, a0: 0.15, a1: 0.22, chain: 0.23, dmg: 9, poise: 12, lunge: 5.5, reach: 2.0, kind: 'knife' },
-  3: { total: 0.44, a0: 0.18, a1: 0.26, chain: 0.27, dmg: 11, poise: 16, lunge: 6.0, reach: 1.9, kind: 'punch' },
-  4: { total: 0.5, a0: 0.2, a1: 0.3, chain: 0.32, dmg: 13, poise: 18, lunge: 5.0, reach: 2.4, kind: 'kick' },
-  5: { total: 0.9, a0: 0.42, a1: 0.58, chain: 0.9, dmg: 26, poise: 44, lunge: 7.5, reach: 2.8, kind: 'spin' },
-};
 const SPEED = 6.5;
 const DODGE_DUR = 0.34;
 const PARRY_WINDOW = 0.24;
@@ -24,6 +15,8 @@ const PARRY_DUR = 0.38;
 
 export class Player {
   readonly group = new THREE.Group();
+  /** 戦闘スタイル（キャラごとに差し替える） */
+  style: FightStyle = STYLES.mahiro;
   pos = new THREE.Vector3(0, 0, 5.5);
   heading = Math.PI;
   vel = new THREE.Vector3();
@@ -159,7 +152,7 @@ export class Player {
       return false;
     }
     if (this.state === 'attack') {
-      const cfg = ATTACK[this.attackStep];
+      const cfg = this.style.attacks[this.attackStep];
       if (this.attackStep < 5 && this.st >= cfg.chain) this.startAttack((this.attackStep + 1) as Step, ctx);
       else if (this.attackStep === 5 && this.st >= cfg.total - 0.02) this.comboDone = true;
     }
@@ -178,32 +171,39 @@ export class Player {
     const dist = Math.hypot(dx, dz);
     if (boss.alive && dist < 8) this.heading = Math.atan2(dx, dz);
     else if (this.moveMag > 0.2) this.heading = Math.atan2(this.moveDir.x, this.moveDir.z);
-    const cfg = ATTACK[step];
+    const cfg = this.style.attacks[step];
     // 間合いが遠ければ踏み込みで詰める（最大 5.5m）
     this.lungeBoost = 0;
     if (boss.alive && dist > cfg.reach + boss.radius && dist < 5.5) {
       this.lungeBoost = Math.min(14, (dist - cfg.reach - boss.radius + 0.4) / Math.max(0.08, cfg.a0));
     }
-    if (cfg.kind === 'knife') ctx.sfx.slash(2);
-    else ctx.sfx.whoosh(cfg.kind === 'spin' ? 0.7 : cfg.kind === 'kick' ? 0.85 : 1.1);
-    ctx.punch(cfg.kind === 'spin' ? 0.6 : 0.25);
+    this.style.swing(ctx.sfx, cfg.kind);
+    ctx.punch((cfg.kind === 'spin' ? 0.6 : 0.25) * this.style.punch);
   }
   private lungeBoost = 0;
 
   private doHit(ctx: Ctx) {
-    const cfg = ATTACK[this.attackStep];
+    const cfg = this.style.attacks[this.attackStep];
     const fwd = this.forward(this.tmp);
     const boss = ctx.boss;
     const c = this.center.clone();
     const kind = cfg.kind;
     const heavy = kind === 'spin';
-    // 演出: ナイフと蹴りは弧、拳は短い閃光
+    const st = this.style;
+    // 演出: 重い型は太い弧と衝撃波、鋭い型は細い斬線と薄い弧
     const cp = c.clone().addScaledVector(fwd, 0.9);
-    if (kind === 'knife') ctx.fx.crescent(cp, this.heading, 'h', 0xff9a3a, 0.8);
-    else if (kind === 'kick') ctx.fx.crescent(cp, this.heading, 'hr', 0xffc060, 0.9);
-    else if (kind === 'spin') ctx.fx.crescent(cp, this.heading, 'h', 0xff6a2a, 1.5);
-    else ctx.fx.flash(cp, 0xffd0a0, 0.7, 0.1);
-    if (heavy) ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.0), 0xff6a2a, 3, 0.35);
+    if (st.sharp) {
+      if (kind === 'knife') ctx.fx.line(cp, this.heading, this.attackStep === 2 ? -0.9 : 0.9, st.hot, 2.6, 0.14);
+      else if (kind === 'spin') { ctx.fx.crescent(cp, this.heading, 'h', st.color, 1.1); ctx.fx.line(cp, this.heading, 0.1, st.hot, 3.2, 0.18); }
+      else if (kind === 'kick') ctx.fx.line(cp, this.heading, 0.15, st.hot, 2.2, 0.12);
+      else ctx.fx.line(cp, this.heading, 0, st.hot, 1.6, 0.1);
+    } else {
+      if (kind === 'knife') ctx.fx.crescent(cp, this.heading, 'h', st.color, 0.95);
+      else if (kind === 'kick') ctx.fx.crescent(cp, this.heading, 'hr', st.hot, 1.05);
+      else if (kind === 'spin') ctx.fx.crescent(cp, this.heading, 'h', st.color, 1.6);
+      else ctx.fx.flash(cp, st.hot, 0.9, 0.12);
+      if (kind !== 'punch') ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.0), st.color, heavy ? 3.2 : 1.8, heavy ? 0.4 : 0.25);
+    }
     let hitSomething = false;
     if (boss.alive) {
       const dx = boss.pos.x - this.pos.x, dz = boss.pos.z - this.pos.z;
@@ -211,19 +211,26 @@ export class Player {
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
       if (dist < cfg.reach + boss.radius && dot > Math.cos(1.2)) {
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
-        ctx.hitstop(kind === 'spin' ? 0.16 : kind === 'kick' ? 0.1 : 0.065, 0.04);
-        ctx.shake(kind === 'spin' ? 0.9 : kind === 'kick' ? 0.55 : 0.38);
-        ctx.punch(kind === 'spin' ? 1 : 0.5);
+        ctx.hitstop((kind === 'spin' ? 0.16 : kind === 'kick' ? 0.1 : 0.065) * st.hitstop, 0.04);
+        ctx.shake((kind === 'spin' ? 0.9 : kind === 'kick' ? 0.55 : 0.38) * st.shake);
+        ctx.punch((kind === 'spin' ? 1 : 0.5) * st.punch);
         const bc = boss.center.clone();
-        ctx.particles.emit(bc, { color: 0xffb060, count: heavy ? 36 : 14, speed: heavy ? 11 : 6, size: 0.22, life: 0.45 });
-        ctx.particles.emit(bc, { color: 0xff5a2a, count: heavy ? 20 : 6, speed: 4, size: 0.28, life: 0.35, up: 2 });
-        ctx.fx.flash(bc, 0xffc070, heavy ? 2.4 : kind === 'punch' ? 1.0 : 1.3);
-        if (heavy) {
-          ctx.fx.pillar(boss.pos, 0xff7a3a, 5, 0.6, 0.4);
-          ctx.fx.ring(boss.pos, 0xffb347, 4.5, 0.45);
-          ctx.ui.flash(0.2);
+        if (st.sharp) {
+          // 鋭い: 細く速い火花と斬線
+          ctx.particles.emit(bc, { color: st.spark, count: heavy ? 30 : 12, speed: heavy ? 16 : 11, size: 0.11, life: 0.28, drag: 5 });
+          ctx.fx.flash(bc, st.hot, heavy ? 1.6 : 0.9, 0.1);
+          ctx.fx.line(bc, this.heading + 0.6, 0.8, st.hot, heavy ? 3 : 1.8, 0.14);
+          ctx.fx.line(bc, this.heading - 0.5, -0.7, st.hot, heavy ? 2.6 : 1.5, 0.12);
+          if (heavy) { ctx.fx.ring(boss.pos, st.color, 3.5, 0.3); ctx.ui.flash(0.15); }
+        } else {
+          // 重い: 大きな火花と閃光、地面の衝撃波
+          ctx.particles.emit(bc, { color: st.spark, count: heavy ? 40 : 18, speed: heavy ? 11 : 6, size: 0.26, life: 0.5 });
+          ctx.particles.emit(bc, { color: st.color, count: heavy ? 24 : 8, speed: 4, size: 0.32, life: 0.4, up: 2 });
+          ctx.fx.flash(bc, st.hot, heavy ? 2.8 : kind === 'punch' ? 1.3 : 1.6);
+          ctx.fx.ring(boss.pos, st.color, heavy ? 4.5 : 2.2, heavy ? 0.45 : 0.3);
+          if (heavy) { ctx.fx.pillar(boss.pos, st.color, 5, 0.6, 0.4); ctx.ui.flash(0.25); }
         }
-        if (heavy) ctx.sfx.heavyHit(); else ctx.sfx.hit();
+        st.hit(ctx.sfx, kind, heavy);
         this.registerHit(ctx);
         hitSomething = true;
       }
@@ -241,16 +248,16 @@ export class Player {
       b.active = false;
       if (destroyed < 12) {
         ctx.particles.emit(b.pos, { color: b.color, count: 5, speed: 4, size: 0.18, life: 0.3 });
-        if (destroyed < 4) ctx.fx.flash(b.pos, b.color, 1.0, 0.12);
+        if (destroyed < 4) ctx.fx.flash(b.pos, st.hot, 1.0, 0.12);
       }
       destroyed++;
     }
-    if (destroyed > 0 && !hitSomething) ctx.sfx.hit();
+    if (destroyed > 0 && !hitSomething) st.hit(ctx.sfx, kind, false);
     // 5 段目（回し蹴り）は衝撃波を飛ばす
     if (kind === 'spin') {
       const p = c.clone().addScaledVector(fwd, 0.9);
-      ctx.bullets.spawn({ pos: p, vel: fwd.clone().multiplyScalar(14), owner: 'player', kind: 2, r: 0.7, damage: 12, life: 1.1, color: 0xff7a30 });
-      ctx.particles.emit(p, { color: 0xff8a30, count: 16, speed: 3, size: 0.28, life: 0.5, dir: fwd, drag: 1 });
+      ctx.bullets.spawn({ pos: p, vel: fwd.clone().multiplyScalar(st.sharp ? 20 : 14), owner: 'player', kind: 2, r: st.sharp ? 0.5 : 0.7, damage: 12, life: 1.1, color: st.hot });
+      ctx.particles.emit(p, { color: st.hot, count: 16, speed: 3, size: st.sharp ? 0.16 : 0.28, life: 0.5, dir: fwd, drag: 1 });
     }
   }
 
@@ -401,7 +408,7 @@ export class Player {
         this.state = 'idle';
       }
     } else if (this.state === 'attack') {
-      const cfg = ATTACK[this.attackStep];
+      const cfg = this.style.attacks[this.attackStep];
       const fwd = this.forward(this.tmp);
       const lungeV = this.st < cfg.a0 ? cfg.lunge + this.lungeBoost : this.st < cfg.a1 ? cfg.lunge : 0;
       this.vel.x = damp(this.vel.x, fwd.x * lungeV, 10, dt);
@@ -437,7 +444,7 @@ export class Player {
 
     // 行動入力（優先順: 回避 > 受け流し > 攻撃 > 射撃）
     if (canAct) {
-      const attackCfg = this.state === 'attack' ? ATTACK[this.attackStep] : null;
+      const attackCfg = this.state === 'attack' ? this.style.attacks[this.attackStep] : null;
       const canCancelToDodge = inFree || this.state === 'parry' && this.st > 0.2 || (attackCfg !== null && this.st > attackCfg.a0);
       const canCancelToParry = inFree || (attackCfg !== null && this.st > attackCfg.a1);
       if (this.dodgeCd <= 0 && canCancelToDodge && input.consume('dodge')) this.startDodge(ctx);
@@ -457,7 +464,7 @@ export class Player {
     let rate = 14;
     switch (this.state) {
       case 'run': pose = poseRun(this.runCycle, this.moveMag); break;
-      case 'attack': pose = poseAttack(this.attackStep, this.st / ATTACK[this.attackStep].total); rate = 50; break;
+      case 'attack': pose = this.style.pose(this.attackStep, this.st / this.style.attacks[this.attackStep].total); rate = 50; break;
       case 'dodge': pose = poseDodge(); rate = 18; break;
       case 'parry': pose = poseParry(); rate = 26; break;
       case 'hit': pose = poseHit(); rate = 18; break;
@@ -473,29 +480,31 @@ export class Player {
     this.rig.root.rotation.y = this.heading;
     // 軌跡: ナイフは刃、蹴りは右脚（膝→足先）に付ける
     if (this.state === 'attack') {
-      const cfg = ATTACK[this.attackStep];
+      const cfg = this.style.attacks[this.attackStep];
       if (this.st > cfg.a0 - 0.06 && this.st < cfg.a1 + 0.06) {
         this.group.updateMatrixWorld(true);
-        if (cfg.kind === 'knife' && this.rig.weapon) {
+        const sharp = this.style.sharp;
+        const pc = this.style.hot;
+        if (cfg.trail === 'knife' && this.rig.weapon) {
           const w = this.rig.weapon;
           const b = w.group.localToWorld(w.base.clone());
           const t = w.group.localToWorld(w.tip.clone());
-          t.sub(b).multiplyScalar(2.2).add(b);
+          t.sub(b).multiplyScalar(sharp ? 3.0 : 2.2).add(b);
           ctx.fx.playerTrail.push(b, t);
-          ctx.particles.emit(t, { color: 0xff9a40, count: 2, speed: 1.5, size: 0.15, life: 0.3, drag: 3, up: 0.5 });
-        } else if (cfg.kind === 'kick' || cfg.kind === 'spin') {
+          ctx.particles.emit(t, { color: pc, count: sharp ? 1 : 2, speed: 1.5, size: sharp ? 0.09 : 0.16, life: 0.3, drag: 3, up: 0.5 });
+        } else if (cfg.trail === 'leg') {
           const leg = this.rig.lowerLegR;
           const b = leg.localToWorld(new THREE.Vector3(0, 0, 0));
           const t = leg.localToWorld(new THREE.Vector3(0, -this.rig.height * 0.34, 0));
           ctx.fx.playerTrail.push(b, t);
-          ctx.particles.emit(t, { color: 0xffc060, count: 3, speed: 1.5, size: 0.14, life: 0.25, drag: 3 });
+          ctx.particles.emit(t, { color: pc, count: sharp ? 2 : 3, speed: 1.5, size: sharp ? 0.09 : 0.15, life: 0.25, drag: 3 });
         } else {
           // 拳: 左の前腕（肘→拳）
           const arm = this.rig.lowerArmL;
           const b = arm.localToWorld(new THREE.Vector3(0, 0, 0));
           const t = arm.localToWorld(new THREE.Vector3(this.rig.height * 0.2, 0, 0));
           ctx.fx.playerTrail.push(b, t);
-          ctx.particles.emit(t, { color: 0xffd0a0, count: 2, speed: 1.2, size: 0.12, life: 0.2, drag: 3 });
+          ctx.particles.emit(t, { color: pc, count: 2, speed: 1.2, size: sharp ? 0.08 : 0.13, life: 0.2, drag: 3 });
         }
       }
     }

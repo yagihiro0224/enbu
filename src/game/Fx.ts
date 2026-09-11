@@ -50,6 +50,11 @@ export class Trail {
     this.mesh.frustumCulled = false;
   }
 
+  setColor(color: THREE.ColorRepresentation, k = 2.2) {
+    const c = new THREE.Color(color);
+    (this.mesh.material as THREE.ShaderMaterial).uniforms.color.value.set(c.r * k, c.g * k, c.b * k);
+  }
+
   push(base: THREE.Vector3, tip: THREE.Vector3) {
     this.samples.push({ b: base.clone(), t: tip.clone(), age: 0 });
     if (this.samples.length > this.N) this.samples.shift();
@@ -152,6 +157,24 @@ export class Fx {
       const k = easeOutCubic(t);
       o.scale.setScalar(size * (0.4 + k * 1.2));
       mat.opacity = 1 - k;
+    });
+  }
+
+  /** 細く鋭い斬線。yaw 方向へ伸び、tilt で傾ける（ラジアン、0 で水平） */
+  line(pos: THREE.Vector3, yaw: number, tilt: number, color: THREE.ColorRepresentation, len = 2.4, dur = 0.16) {
+    const mat = new THREE.MeshBasicMaterial({ color: this.hdr(color, 2.2), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len, 0.07), mat);
+    m.position.copy(pos);
+    m.rotation.order = 'YXZ';
+    m.rotation.y = yaw + Math.PI / 2;
+    m.rotation.z = tilt;
+    const core = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.9, 0.025), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.0, 2.4), toneMapped: false, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }));
+    m.add(core);
+    this.add(m, dur, (o, t) => {
+      const k = easeOutCubic(t);
+      o.scale.set(0.3 + k * 1.1, 1 - k * 0.7, 1);
+      mat.opacity = 1 - t;
+      (core.material as THREE.MeshBasicMaterial).opacity = 1 - t * 1.5;
     });
   }
 
