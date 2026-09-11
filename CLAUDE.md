@@ -179,3 +179,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 
 - 立ち絵 `public/images/*_cap.png` はユーザー提供の「バストアップ｜全身（銃）」2 コマ並び（515x390）。
   `#res-cap` は aspect-ratio 0.64 + object-position 2% で左のバストアップだけを切り出している。絵を差し替えるならここを合わせ直す。
+
+## 2026-09-11 の追加（打撃エフェクト・立ち絵の光・勝利の踊り）
+
+- **打撃は Fx.impact（放射状のトゲのスプライト）**。刃物（AttackCfg.trail === 'knife'）だけ crescent / line の斬撃表現を使う。
+  ユーザー指摘「打撃時のエフェクトが剣のような感じ」への対応。トゲの絵は Face.ts の impactTexture(トゲ数)
+- 立ち絵の枠は `capglow` / `capaura` でゆっくり明滅する（無限アニメなのでヘッドレスでも描画される）
+- **勝利ポーズは踊り**（Anim.ts の poseVictory）。4.4 秒で 1 周: 両手を上げて弾む → 片手を上げて 1 回転（hipsYaw）→ 手を振る。
+  sharp（ちさと）は振幅 0.78 倍で控えめ。もう一人は poseClap で拍手し続ける
+- 動作確認: `?win=42&vt=秒` で勝利後の経過時間を指定して撮る（finish の hitstop 2.2 秒が 0.3 倍速なので、
+  実時間 vt に対しゲーム内時間はおよそ `0.3*min(vt,2.2) + max(0, vt-2.2)`）。`?dance` で連続コマも撮れる

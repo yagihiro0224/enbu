@@ -209,16 +209,16 @@ export class Player {
     const st = this.style;
     // 演出: 重い型は太い弧と衝撃波、鋭い型は細い斬線と薄い弧
     const cp = c.clone().addScaledVector(fwd, 0.9);
-    if (st.sharp) {
-      if (kind === 'knife') ctx.fx.line(cp, this.heading, this.attackStep === 2 ? -0.9 : 0.9, st.hot, 2.6, 0.14);
-      else if (kind === 'spin') { ctx.fx.crescent(cp, this.heading, 'h', st.color, 1.1); ctx.fx.line(cp, this.heading, 0.1, st.hot, 3.2, 0.18); }
-      else if (kind === 'kick') ctx.fx.line(cp, this.heading, 0.15, st.hot, 2.2, 0.12);
-      else ctx.fx.line(cp, this.heading, 0, st.hot, 1.6, 0.1);
+    // 刃物は弧や斬線、拳と蹴りは放射状の衝撃
+    if (cfg.trail === 'knife') {
+      if (st.sharp) {
+        if (kind === 'spin') { ctx.fx.crescent(cp, this.heading, 'h', st.color, 1.1); ctx.fx.line(cp, this.heading, 0.1, st.hot, 3.2, 0.18); }
+        else ctx.fx.line(cp, this.heading, this.attackStep === 2 ? -0.9 : 0.9, st.hot, 2.6, 0.14);
+      } else {
+        ctx.fx.crescent(cp, this.heading, 'h', st.color, kind === 'spin' ? 1.6 : 0.95);
+      }
     } else {
-      if (kind === 'knife') ctx.fx.crescent(cp, this.heading, 'h', st.color, 0.95);
-      else if (kind === 'kick') ctx.fx.crescent(cp, this.heading, 'hr', st.hot, 1.05);
-      else if (kind === 'spin') ctx.fx.crescent(cp, this.heading, 'h', st.color, 1.6);
-      else ctx.fx.flash(cp, st.hot, 0.9, 0.12);
+      ctx.fx.impact(cp, st.hot, heavy ? 2.6 : kind === 'kick' ? 1.9 : 1.35, st.sharp);
       if (kind !== 'punch') ctx.fx.ring(this.pos.clone().addScaledVector(fwd, 1.0), st.color, heavy ? 3.2 : 1.8, heavy ? 0.4 : 0.25);
     }
     let hitSomething = false;
@@ -236,15 +236,20 @@ export class Player {
         if (st.sharp) {
           // 鋭い: 細く速い火花と斬線
           ctx.particles.emit(bc, { color: st.spark, count: heavy ? 30 : 12, speed: heavy ? 16 : 11, size: 0.11, life: 0.28, drag: 5 });
-          ctx.fx.flash(bc, st.hot, heavy ? 1.6 : 0.9, 0.1);
-          ctx.fx.line(bc, this.heading + 0.6, 0.8, st.hot, heavy ? 3 : 1.8, 0.14);
-          ctx.fx.line(bc, this.heading - 0.5, -0.7, st.hot, heavy ? 2.6 : 1.5, 0.12);
+          if (cfg.trail === 'knife') {
+            ctx.fx.flash(bc, st.hot, heavy ? 1.6 : 0.9, 0.1);
+            ctx.fx.line(bc, this.heading + 0.6, 0.8, st.hot, heavy ? 3 : 1.8, 0.14);
+            ctx.fx.line(bc, this.heading - 0.5, -0.7, st.hot, heavy ? 2.6 : 1.5, 0.12);
+          } else {
+            ctx.fx.impact(bc, st.hot, heavy ? 2.4 : 1.6, true);
+          }
           if (heavy) { ctx.fx.ring(boss.pos, st.color, 3.5, 0.3); ctx.ui.flash(0.15); }
         } else {
           // 重い: 大きな火花と閃光、地面の衝撃波
           ctx.particles.emit(bc, { color: st.spark, count: heavy ? 40 : 18, speed: heavy ? 11 : 6, size: 0.26, life: 0.5 });
           ctx.particles.emit(bc, { color: st.color, count: heavy ? 24 : 8, speed: 4, size: 0.32, life: 0.4, up: 2 });
-          ctx.fx.flash(bc, st.hot, heavy ? 2.8 : kind === 'punch' ? 1.3 : 1.6);
+          if (cfg.trail === 'knife') ctx.fx.flash(bc, st.hot, heavy ? 2.8 : 1.6);
+          else ctx.fx.impact(bc, st.hot, heavy ? 3.2 : kind === 'kick' ? 2.3 : 1.8, false);
           ctx.fx.ring(boss.pos, st.color, heavy ? 4.5 : 2.2, heavy ? 0.45 : 0.3);
           if (heavy) { ctx.fx.pillar(boss.pos, st.color, 5, 0.6, 0.4); ctx.ui.flash(0.25); }
         }

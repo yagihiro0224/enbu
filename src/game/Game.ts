@@ -173,7 +173,25 @@ export class Game {
           pl.damaged = q.has('dmg');
           this.playTime = Number(q.get('sec') ?? 52);
           this.finish(!q.has('lose'));
-          for (let i = 0; i < 3.4 * 60; i++) this.step(1 / 60);
+          for (let i = 0; i < Number(q.get('vt') ?? 3.4) * 60; i++) this.step(1 / 60);
+          // ?dance で勝利の踊りを 15fps の連続コマにして貼る
+          if (q.has('dance')) {
+            const cols = Number(q.get('dc') ?? 6), rows = Number(q.get('dr') ?? 4);
+            const tw = 320, th = 180;
+            const every = Number(q.get('ds') ?? 8);
+            const strip = document.createElement('canvas');
+            strip.width = cols * tw; strip.height = rows * th;
+            const g2 = strip.getContext('2d')!;
+            g2.fillStyle = '#000'; g2.fillRect(0, 0, strip.width, strip.height);
+            for (let tile = 0; tile < cols * rows; tile++) {
+              for (let k = 0; k < every; k++) this.step(1 / 60);
+              this.renderer.render(this.scene, this.camera);
+              g2.drawImage(this.renderer.domElement, (tile % cols) * tw, Math.floor(tile / cols) * th, tw, th);
+            }
+            strip.style.cssText = 'position:fixed;left:0;top:0;width:100vw;height:auto;z-index:99;background:#000';
+            document.body.appendChild(strip);
+            console.info('dance strip done');
+          }
           console.info(`win dbg total=${this.score?.total} rank=${this.score?.rank.name}`);
         }
         // ?swap で早送り後に交代を 1 回実行して 20 コマ進める

@@ -158,3 +158,38 @@ export function flashTexture(): THREE.CanvasTexture {
   g.restore();
   return finish(c);
 }
+
+/** 打撃の衝撃（放射状のトゲ）。拳や蹴りが当たった瞬間に出す */
+export function impactTexture(spikes = 14): THREE.CanvasTexture {
+  const S = 256;
+  const { c, g } = canvas(S, S);
+  const cx = S / 2;
+  g.translate(cx, cx);
+  // 中心の光
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, S * 0.2);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+  core.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = core;
+  g.beginPath();
+  g.arc(0, 0, S * 0.2, 0, Math.PI * 2);
+  g.fill();
+  // 放射状のトゲ。長短を交互にして手描きらしく
+  for (let i = 0; i < spikes; i++) {
+    const a = (i / spikes) * Math.PI * 2;
+    const len = (i % 2 === 0 ? 0.48 : 0.3) * S * (0.85 + ((i * 37) % 10) / 40);
+    const w = (i % 2 === 0 ? 0.052 : 0.036) * Math.PI * 2;
+    const grad = g.createLinearGradient(0, 0, Math.cos(a) * len, Math.sin(a) * len);
+    grad.addColorStop(0, 'rgba(255,255,255,0.95)');
+    grad.addColorStop(0.45, 'rgba(255,255,255,0.5)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.moveTo(Math.cos(a - w) * S * 0.07, Math.sin(a - w) * S * 0.07);
+    g.lineTo(Math.cos(a) * len, Math.sin(a) * len);
+    g.lineTo(Math.cos(a + w) * S * 0.07, Math.sin(a + w) * S * 0.07);
+    g.closePath();
+    g.fill();
+  }
+  return finish(c);
+}

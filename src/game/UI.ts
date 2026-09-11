@@ -106,8 +106,16 @@ const CSS = `
    別の絵に差し替えるときは aspect-ratio と object-position を合わせ直す */
 #res-cap { position: relative; flex: 0 0 auto; width: clamp(96px, 15vw, 190px); aspect-ratio: 0.64; }
 #res-cap img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 2% center; border-radius: 14px; }
-#res-cap::after { content: ''; position: absolute; inset: -8px; border-radius: 18px; pointer-events: none;
-  box-shadow: 0 0 26px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.35); opacity: 0.55; }
+/* 枠はゆっくり息をするように光る */
+#res-cap::before { content: ''; position: absolute; inset: -22px; border-radius: 30px; pointer-events: none; z-index: -1;
+  background: radial-gradient(ellipse at center, var(--tint, #ff3a2a) 0%, transparent 68%);
+  opacity: 0.3; filter: blur(10px); animation: capaura 3.4s ease-in-out infinite; }
+#res-cap::after { content: ''; position: absolute; inset: -6px; border-radius: 18px; pointer-events: none;
+  box-shadow: 0 0 22px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.4);
+  animation: capglow 3.4s ease-in-out infinite; }
+@keyframes capglow { 0%, 100% { opacity: 0.42; box-shadow: 0 0 16px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.32); }
+  50% { opacity: 0.9; box-shadow: 0 0 40px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.6); } }
+@keyframes capaura { 0%, 100% { opacity: 0.22; transform: scale(0.96); } 50% { opacity: 0.5; transform: scale(1.04); } }
 #res-cap.noimg { display: none; }
 #res-lines { flex: 1 1 auto; min-width: 0; animation: rkfade 0.45s ease-out 0.1s backwards; }
 .res-line { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.12);

@@ -437,35 +437,61 @@ export function poseAttackChisato(step: 1 | 2 | 3 | 4 | 5, p: number): Pose {
 
 // ---- 勝利演出 ----
 
-/** 勝利ポーズ。sharp=true（ちさと）はナイフを構えた静かな型、false（まひろ）は拳を突き上げる型 */
+/**
+ * 勝利の踊り。4.4 秒で 1 周する。
+ * 前半は正面で両手を上げて弾み、次に片手を上げたまま 1 回転、最後は手を振る。
+ * sharp（ちさと）は少し抑えめ、それ以外（まひろ）は大きく動く。
+ */
 export function poseVictory(t: number, sharp: boolean): Pose {
-  // 最初の 0.35 秒で構えへ入り、その後は微かに揺れる
-  const b = Math.sin(t * 1.8) * 0.02;
-  if (sharp) {
-    const spine: Vec3 = [0.04 + b, -0.55, 0];
-    return {
-      hipsY: -0.03 + b,
-      spine,
-      head: [-0.04, 0.5 + Math.sin(t * 1.1) * 0.04, 0.06],
-      // 右手のナイフを胸の前へ寝かせ、左手は腰に添える
-      ...arms({ L: [[0.62, -0.72, -0.15], [0.2, -0.85, 0.48]], R: [[-0.5, -0.62, 0.6], [0.45, 0.05, 0.89]] }, spine),
-      upperLegL: [-0.22, 0, -0.12],
-      lowerLegL: [0.3, 0, 0],
-      upperLegR: [0.18, 0, 0.14],
-      lowerLegR: [0.22, 0, 0],
+  const T = 4.4;
+  const p = ((t % T) + T) % T;
+  const amp = sharp ? 0.78 : 1;
+  const bounce = Math.abs(Math.sin(t * 4.4));
+  const sway = Math.sin(t * 2.2);
+  const step = Math.sin(t * 4.4);
+
+  // 1.6〜2.9 秒で 1 回転
+  let spin = 0;
+  if (p >= 1.6 && p < 2.9) spin = smoothstep((p - 1.6) / 1.3) * Math.PI * 2;
+  const yaw = spin + sway * 0.14 * amp;
+
+  const spine: Vec3 = [0.04, 0, sway * 0.08 * amp];
+  const liftL = Math.max(0, step);
+  const liftR = Math.max(0, -step);
+
+  let dirs: ArmDirs;
+  if (p < 1.6) {
+    // 両手を上げて弾む
+    const w = sway * 0.18 * amp;
+    dirs = {
+      L: [[0.46 + w, 0.82, 0.24], [0.22 + w, 0.96, 0.16]],
+      R: [[-0.46 + w, 0.82, 0.24], [-0.22 + w, 0.96, 0.16]],
+    };
+  } else if (p < 2.9) {
+    // 片手を上げたまま回る
+    dirs = {
+      L: [[0.24, 0.95, 0.1], [0.08, 0.99, 0.05]],
+      R: [[-0.86, -0.18, 0.44], [-0.94, 0.12, 0.3]],
+    };
+  } else {
+    // 手を振る（もう片方は腰）
+    const w = sway * 0.3 * amp;
+    dirs = {
+      L: [[0.4 + w, 0.88, 0.18], [0.2 + w, 0.95, 0.14]],
+      R: [[-0.6, -0.72, -0.14], [-0.2, -0.86, 0.46]],
     };
   }
-  const spine: Vec3 = [-0.12 + b, -0.18, 0];
+
   return {
-    hipsY: 0.02 + b,
+    hipsY: 0.01 + bounce * 0.07 * amp,
+    hipsYaw: yaw,
     spine,
-    head: [0.16, 0.12, 0],
-    // 左拳を高く突き上げ、右のナイフは下ろす
-    ...arms({ L: [[0.3, 0.94, 0.12], [0.12, 0.98, 0.1]], R: [[-0.42, -0.88, -0.12], [-0.24, -0.72, 0.65]] }, spine),
-    upperLegL: [-0.16, 0, -0.14],
-    lowerLegL: [0.12, 0, 0],
-    upperLegR: [0.12, 0, 0.16],
-    lowerLegR: [0.16, 0, 0],
+    head: [-0.02 - bounce * 0.05, sway * 0.2 * amp, -sway * 0.13 * amp],
+    ...arms(dirs, spine),
+    upperLegL: [-0.08 - liftL * 0.5 * amp, 0, -0.11],
+    lowerLegL: [0.14 + liftL * 0.85 * amp, 0, 0],
+    upperLegR: [-0.06 - liftR * 0.5 * amp, 0, 0.13],
+    lowerLegR: [0.12 + liftR * 0.85 * amp, 0, 0],
   };
 }
 

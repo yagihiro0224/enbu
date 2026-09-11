@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { flashTexture, magicCircleTexture } from './Face';
+import { flashTexture, impactTexture, magicCircleTexture } from './Face';
 import { easeOutCubic } from './util';
 
 interface Item {
@@ -88,6 +88,8 @@ export class Fx {
   readonly playerTrail = new Trail(0xff7a2a);
   private items: Item[] = [];
   private flashTex = flashTexture();
+  private impactTex = impactTexture(14);
+  private impactTexSharp = impactTexture(22);
   private crescentGeo = new THREE.RingGeometry(0.78, 1.2, 32, 1, 0, 2.7);
   private ringGeo = new THREE.RingGeometry(0.85, 1.0, 40);
   private circleTex = magicCircleTexture('rgba(220,120,255,0.95)');
@@ -157,6 +159,36 @@ export class Fx {
       const k = easeOutCubic(t);
       o.scale.setScalar(size * (0.4 + k * 1.2));
       mat.opacity = 1 - k;
+    });
+  }
+
+  /**
+   * 打撃の衝撃。カメラを向く放射状のトゲが弾けて消える。
+   * sharp=true は細かいトゲで速く、false は太いトゲでやや長く残る
+   */
+  impact(pos: THREE.Vector3, color: THREE.ColorRepresentation, size = 1.5, sharp = false) {
+    const mat = new THREE.SpriteMaterial({
+      map: sharp ? this.impactTexSharp : this.impactTex,
+      color: this.hdr(color, sharp ? 2.0 : 1.7), toneMapped: false, transparent: true, depthWrite: false,
+      blending: THREE.AdditiveBlending, rotation: Math.random() * Math.PI,
+    });
+    const sp = new THREE.Sprite(mat);
+    sp.position.copy(pos);
+    const spin = (Math.random() < 0.5 ? -1 : 1) * (sharp ? 1.6 : 0.9);
+    this.add(sp, sharp ? 0.16 : 0.24, (o, t) => {
+      // 一気に開いてから少し縮みながら消える
+      const k = easeOutCubic(t);
+      o.scale.setScalar(size * (0.35 + k * 0.95) * (1 - t * 0.12));
+      mat.rotation += spin * 0.02;
+      mat.opacity = 1 - t * t;
+    });
+    // 中心の白い芯
+    const cm = new THREE.SpriteMaterial({ map: this.flashTex, color: new THREE.Color(1.7, 1.6, 1.5), toneMapped: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    const core = new THREE.Sprite(cm);
+    core.position.copy(pos);
+    this.add(core, sharp ? 0.09 : 0.12, (o, t) => {
+      o.scale.setScalar(size * (0.2 + easeOutCubic(t) * 0.24));
+      cm.opacity = 1 - t;
     });
   }
 
