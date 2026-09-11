@@ -102,8 +102,10 @@ const CSS = `
 @keyframes rkbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
 @keyframes rkfade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 #res-body { display: flex; align-items: center; gap: 22px; }
-#res-cap { position: relative; flex: 0 0 auto; width: clamp(96px, 15vw, 190px); }
-#res-cap img { display: block; width: 100%; border-radius: 14px; }
+/* 立ち絵は「バストアップ｜全身」の 2 コマ並びを想定し、左のバストアップだけを切り出して縦長の枠に収める。
+   別の絵に差し替えるときは aspect-ratio と object-position を合わせ直す */
+#res-cap { position: relative; flex: 0 0 auto; width: clamp(96px, 15vw, 190px); aspect-ratio: 0.64; }
+#res-cap img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 2% center; border-radius: 14px; }
 #res-cap::after { content: ''; position: absolute; inset: -8px; border-radius: 18px; pointer-events: none;
   box-shadow: 0 0 26px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.35); opacity: 0.55; }
 #res-cap.noimg { display: none; }

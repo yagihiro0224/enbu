@@ -171,3 +171,6 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 
 - **開始時に requestFullscreen は呼ばない**（2026-09-11 ユーザー指示「急に全画面になるのはやめたい」）。画面の向きのロックも同時に廃止した。
   なお `public/manifest.webmanifest` の `display: fullscreen` はホーム画面に追加して起動したときだけ効くもので、プレイ中の切り替えとは別物。
+
+- 立ち絵 `public/images/*_cap.png` はユーザー提供の「バストアップ｜全身（銃）」2 コマ並び（515x390）。
+  `#res-cap` は aspect-ratio 0.64 + object-position 2% で左のバストアップだけを切り出している。絵を差し替えるならここを合わせ直す。
