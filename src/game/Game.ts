@@ -168,6 +168,11 @@ export class Game {
         console.warn('モデルの読み込みに失敗', e);
       }
     }
+    // ?hp=数値 で敵の体力を上書き（検証用）
+    if (q.has('hp')) {
+      this.boss.setMaxHp(Number(q.get('hp')) || this.boss.maxHp);
+      this.ui.setBossHp(1);
+    }
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {

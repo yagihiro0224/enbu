@@ -9,6 +9,14 @@ import type { Fx } from './Fx';
 type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead';
 /** 敵の弾の密度（2026-09-11 ユーザー指示で 1/10 に） */
 const BULLET_DENSITY = 0.1;
+
+/** 本来の体力。スコアの配点とコンボ倍率はこの値を前提に調整してある */
+export const BOSS_HP_NORMAL = 800;
+/**
+ * 現在の体力。2026-09-11 時点は **検証用の臨時値**（短く決着させるため半分）。
+ * 検証が終わったら BOSS_HP_NORMAL に戻す。`?hp=数値` でも上書きできる。
+ */
+export const BOSS_HP = 400;
 type Pattern = Generator<number, void, unknown>;
 
 export class Boss {
@@ -16,8 +24,8 @@ export class Boss {
   pos = new THREE.Vector3(0, 0, -6);
   heading = 0;
   vel = new THREE.Vector3();
-  hp = 400;
-  maxHp = 400;
+  hp = BOSS_HP;
+  maxHp = BOSS_HP;
   radius = 0.55;
   poise = 0;
   poiseMax = 110;
@@ -45,6 +53,12 @@ export class Boss {
     this.group.add(rig.root);
     this.group.add(blobShadow(0.7));
     this.anim = new Animator(rig);
+  }
+
+  /** 体力の上限を差し替える（検証用） */
+  setMaxHp(v: number) {
+    this.maxHp = v;
+    this.hp = v;
   }
 
   /** 足元の魔法陣を用意する */
