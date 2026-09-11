@@ -5,7 +5,7 @@
 ## 現状（2026-09-10 時点）
 
 - スマホブラウザ向け 3D ボス戦アクション。Steam『炎姫』のコンセプトを真似た個人の趣味プロジェクト
-- 公開: https://yagihiro0224.github.io/enbu/ （main への push で GitHub Actions が自動デプロイ）
+- 公開: https://hiro0224world.github.io/enbu/ （main への push で GitHub Actions が自動デプロイ）
 - Three.js 0.186 + TypeScript + Vite。物理エンジンなし。弾は InstancedMesh、演出は Fx.ts、ブルームは UnrealBloom
 - キャラは Figure.ts のプリミティブ製 7 頭身アニメ調フィギュア。目はキャンバス描画テクスチャ
 - `public/models/player.vrm` を置くと主人公が VRM に差し替わる（VrmRig.ts。VRM での実動作は未検証）
@@ -145,6 +145,6 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 
 ## 別の PC で始める手順
 
-1. `git clone https://github.com/yagihiro0224/enbu.git && cd enbu && npm install`
+1. `git clone https://github.com/hiro0224world/enbu.git && cd enbu && npm install`
 2. Claude Code をリポジトリ直下で起動し、「CLAUDE.md を読んで続きをやって」と伝える
 3. 設定画や VRM/GLB ができたら `public/models/` に置くか、チャットに貼る
