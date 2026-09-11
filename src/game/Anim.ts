@@ -434,3 +434,57 @@ export function poseAttackChisato(step: 1 | 2 | 3 | 4 | 5, p: number): Pose {
     }
   }
 }
+
+// ---- 勝利演出 ----
+
+/** 勝利ポーズ。sharp=true（ちさと）はナイフを構えた静かな型、false（まひろ）は拳を突き上げる型 */
+export function poseVictory(t: number, sharp: boolean): Pose {
+  // 最初の 0.35 秒で構えへ入り、その後は微かに揺れる
+  const b = Math.sin(t * 1.8) * 0.02;
+  if (sharp) {
+    const spine: Vec3 = [0.04 + b, -0.55, 0];
+    return {
+      hipsY: -0.03 + b,
+      spine,
+      head: [-0.04, 0.5 + Math.sin(t * 1.1) * 0.04, 0.06],
+      // 右手のナイフを胸の前へ寝かせ、左手は腰に添える
+      ...arms({ L: [[0.62, -0.72, -0.15], [0.2, -0.85, 0.48]], R: [[-0.5, -0.62, 0.6], [0.45, 0.05, 0.89]] }, spine),
+      upperLegL: [-0.22, 0, -0.12],
+      lowerLegL: [0.3, 0, 0],
+      upperLegR: [0.18, 0, 0.14],
+      lowerLegR: [0.22, 0, 0],
+    };
+  }
+  const spine: Vec3 = [-0.12 + b, -0.18, 0];
+  return {
+    hipsY: 0.02 + b,
+    spine,
+    head: [0.16, 0.12, 0],
+    // 左拳を高く突き上げ、右のナイフは下ろす
+    ...arms({ L: [[0.3, 0.94, 0.12], [0.12, 0.98, 0.1]], R: [[-0.42, -0.88, -0.12], [-0.24, -0.72, 0.65]] }, spine),
+    upperLegL: [-0.16, 0, -0.14],
+    lowerLegL: [0.12, 0, 0],
+    upperLegR: [0.12, 0, 0.16],
+    lowerLegR: [0.16, 0, 0],
+  };
+}
+
+/** 隣で拍手する。手を胸の前で打ち合わせ、軽く弾む */
+export function poseClap(t: number): Pose {
+  const c = Math.abs(Math.sin(t * 7.5)); // 0 で手が合う
+  const spine: Vec3 = [0.06, 0, 0];
+  const open = 0.18 + c * 0.4;
+  return {
+    hipsY: -0.02 - c * 0.03,
+    spine,
+    head: [-0.05 + c * 0.06, Math.sin(t * 1.3) * 0.12, 0],
+    ...arms({
+      L: [[0.55, -0.66, 0.52], [-0.62 + open, 0.1, 0.78]],
+      R: [[-0.55, -0.66, 0.52], [0.62 - open, 0.1, 0.78]],
+    }, spine),
+    upperLegL: [-0.1, 0, -0.12],
+    lowerLegL: [0.14, 0, 0],
+    upperLegR: [0.08, 0, 0.12],
+    lowerLegR: [0.12, 0, 0],
+  };
+}

@@ -13,6 +13,8 @@ import { tryLoadVrm } from './VrmRig';
 import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
+import { computeScore, type ScoreResult } from './Score';
+import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -161,6 +163,19 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?win=打撃数 でリザルト画面まで一気に進める（?dmg を付けると被弾ありになる）
+        if (q.has('win')) {
+          const pl = this.player;
+          pl.meleeHits = Number(q.get('win')) || 42;
+          pl.meleeParries = Number(q.get('mp') ?? 3);
+          pl.bulletParries = Number(q.get('bp') ?? 7);
+          pl.maxCombo = Number(q.get('mc') ?? 18);
+          pl.damaged = q.has('dmg');
+          this.playTime = Number(q.get('sec') ?? 52);
+          this.finish(!q.has('lose'));
+          for (let i = 0; i < 3.4 * 60; i++) this.step(1 / 60);
+          console.info(`win dbg total=${this.score?.total} rank=${this.score?.rank.name}`);
+        }
         // ?swap で早送り後に交代を 1 回実行して 20 コマ進める
         if (q.has('swap')) { this.swap(); for (let i = 0; i < 20; i++) this.step(1 / 60); console.info(`swap dbg -> ${this.current}`); }
         // ?combo で 5 段コンボを 30fps の連続コマにして画面に貼る（cols 列 × rows 行）
@@ -217,6 +232,10 @@ export class Game {
   private rigs: Partial<Record<CharId, Rig | null>> = {};
   private current: CharId = 'mahiro';
   private swapCd = 0;
+  /** 勝利演出: 隣で拍手する相棒 */
+  private partner: { rig: Rig; anim: Animator; t: number } | null = null;
+  private victoryDir = new THREE.Vector3(0, 0, 1);
+  private score: ScoreResult | null = null;
 
   /** 主人公を切り替える（読み込み済みの VRM のみ） */
   private setChar(id: CharId) {
@@ -258,6 +277,7 @@ export class Game {
   }
 
   private restart() {
+    this.clearVictory();
     this.ui.hideResult();
     this.bullets.clear();
     this.particles.clear();
@@ -293,8 +313,48 @@ export class Game {
     this.input.setVisible(false);
     this.ui.setSwapVisible(false);
     this.ctx.hitstop(2.2, 0.3);
-    if (win) { this.sfx.win(); this.ui.showBanner('浄化', '#ffe08a', 2); this.ui.flash(0.8); }
-    else { this.sfx.lose(); this.ui.showBanner('散華', '#c0a0ff', 2); }
+    this.score = computeScore({
+      hits: this.player.meleeHits,
+      meleeParries: this.player.meleeParries,
+      bulletParries: this.player.bulletParries,
+      noDamage: !this.player.damaged,
+      seconds: this.playTime,
+      maxCombo: this.player.maxCombo,
+    });
+    if (win) {
+      this.sfx.win();
+      this.ui.showBanner('浄化', '#ffe08a', 2);
+      this.ui.flash(0.8);
+      this.setupVictory();
+    } else {
+      this.sfx.lose();
+      this.ui.showBanner('散華', '#c0a0ff', 2);
+    }
+  }
+
+  /** 勝ったキャラを正面から大きく見せ、もう一人を隣に立たせて拍手させる */
+  private setupVictory() {
+    this.player.startWin();
+    this.victoryDir.set(Math.sin(this.player.heading), 0, Math.cos(this.player.heading));
+    const otherId: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
+    const rig = this.rigs[otherId];
+    if (!rig || rig === this.player.rig) return;
+    // カメラから見た右方向。相棒は画面の左側（スコア面板の反対側）に置く
+    const right = new THREE.Vector3(this.victoryDir.z, 0, -this.victoryDir.x);
+    rig.root.position.copy(this.player.pos).addScaledVector(right, -1.05).addScaledVector(this.victoryDir, -0.5);
+    rig.root.rotation.y = this.player.heading + 0.3;
+    rig.setFist?.(0.25, 1);
+    this.scene.add(rig.root);
+    this.partner = { rig, anim: new Animator(rig), t: 0 };
+    console.info(`victory: winner=${this.current} partner=${otherId}`);
+  }
+
+  private clearVictory() {
+    if (!this.partner) return;
+    this.scene.remove(this.partner.rig.root);
+    this.partner.rig.root.position.set(0, 0, 0);
+    this.partner.rig.root.rotation.y = 0;
+    this.partner = null;
   }
 
   private tryFullscreen() {
@@ -347,11 +407,18 @@ export class Game {
     if (this.state === 'over') {
       this.overTimer += real;
       if (this.overTimer > 2.8 && this.overTimer - real <= 2.8) {
-        this.ui.showResult(this.overWin, this.playTime, this.player.maxCombo, this.player.parries);
+        if (this.score) this.ui.showResult(this.overWin, this.score, this.current, this.playTime, this.player.maxCombo);
       }
     }
 
     this.player.update(dt, this.ctx);
+    if (this.partner) {
+      this.partner.t += dt;
+      // 少し遅れて拍手を始める
+      const pt = Math.max(0, this.partner.t - 0.5);
+      this.partner.anim.apply(poseClap(pt), 12, dt);
+      this.partner.rig.update(dt);
+    }
     this.boss.update(dt, this.ctx, playing);
     this.bullets.update(dt, (b) => (b.owner === 'boss' ? this.player.center : this.boss.alive ? this.boss.center : null), ARENA_R);
     if (playing) this.collide();
@@ -417,6 +484,15 @@ export class Game {
       const yaw = t.heading + off;
       desired = new THREE.Vector3(t.pos.x + Math.sin(yaw) * 3.2, t.pos.y + 1.5, t.pos.z + Math.cos(yaw) * 3.2);
       look = new THREE.Vector3(t.pos.x, t.pos.y + 1.0, t.pos.z);
+    } else if (this.state === 'over' && this.overWin) {
+      // 正面から全身を大きく。被写体が画面の左に寄るよう、注視点を右へずらす
+      const d = this.victoryDir;
+      const right = new THREE.Vector3(d.z, 0, -d.x);
+      const wide = this.camera.aspect >= 1;
+      desired = new THREE.Vector3(pl.pos.x + d.x * 3.3, pl.pos.y + 1.0, pl.pos.z + d.z * 3.3);
+      look = new THREE.Vector3(pl.pos.x, pl.pos.y + 0.9, pl.pos.z)
+        .addScaledVector(right, wide ? 0.8 : 0.3);
+      if (!wide) look.y += 0.35;
     } else if (this.state === 'title') {
       const a = this.time * 0.15;
       desired = new THREE.Vector3(Math.sin(a) * 11, 3.5, Math.cos(a) * 11);

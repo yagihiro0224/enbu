@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import type { Rig } from './Rig';
-import { Animator, poseIdle, poseRun, poseDodge, poseParry, poseShoot, poseHit, poseDead, type Pose } from './Anim';
+import { Animator, poseIdle, poseRun, poseDodge, poseParry, poseShoot, poseHit, poseDead, poseVictory, type Pose } from './Anim';
 import { STYLES, type FightStyle, type Step } from './Style';
 import { blobShadow } from './Toon';
 import { clamp, damp, dampAngle, easeInCubic } from './util';
 import type { Ctx } from './Ctx';
 
-type State = 'idle' | 'run' | 'attack' | 'dodge' | 'parry' | 'hit' | 'dead';
+type State = 'idle' | 'run' | 'attack' | 'dodge' | 'parry' | 'hit' | 'dead' | 'win';
 
 const SPEED = 6.5;
 const DODGE_DUR = 0.34;
@@ -40,6 +40,11 @@ export class Player {
   comboTimer = 0;
   maxCombo = 0;
   parries = 0;
+  /** スコア集計用のカウンタ（Game がリザルトで読む） */
+  meleeHits = 0;
+  meleeParries = 0;
+  bulletParries = 0;
+  damaged = false;
   private runCycle = 0;
   private flash = 0;
   private glow = 0;
@@ -70,6 +75,15 @@ export class Player {
     this.rig.setWeaponGlow(0);
   }
 
+  /** 勝利ポーズに入る */
+  startWin() {
+    this.state = 'win';
+    this.st = 0;
+    this.vel.set(0, 0, 0);
+    this.rig.setFlash(0);
+    this.rig.setWeaponGlow(0);
+  }
+
   /** 交代できる状態か（待機・移動中のみ） */
   get canSwap() {
     return this.alive && (this.state === 'idle' || this.state === 'run');
@@ -84,6 +98,8 @@ export class Player {
     this.st = 0;
     this.invuln = this.parryCd = this.dodgeCd = this.shootCd = this.shootPose = 0;
     this.combo = this.maxCombo = this.parries = 0;
+    this.meleeHits = this.meleeParries = this.bulletParries = 0;
+    this.damaged = false;
     this.comboTimer = 0;
     this.flash = this.glow = 0;
     this.rig.setFlash(0);
@@ -111,6 +127,7 @@ export class Player {
     if (!this.alive) return false;
     if (this.invuln > 0 || this.state === 'dodge') return false;
     this.hp = Math.max(0, this.hp - dmg);
+    this.damaged = true;
     this.invuln = 0.9;
     this.combo = 0;
     this.comboTimer = 0;
@@ -211,6 +228,7 @@ export class Player {
       const dot = dist > 1e-4 ? (dx * fwd.x + dz * fwd.z) / dist : 1;
       if (dist < cfg.reach + boss.radius && dot > Math.cos(1.2)) {
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
+        this.meleeHits++;
         ctx.hitstop((kind === 'spin' ? 0.16 : kind === 'kick' ? 0.1 : 0.065) * st.hitstop, 0.04);
         ctx.shake((kind === 'spin' ? 0.9 : kind === 'kick' ? 0.55 : 0.38) * st.shake);
         ctx.punch((kind === 'spin' ? 1 : 0.5) * st.punch);
@@ -322,6 +340,7 @@ export class Player {
         ctx.fx.flash(c, 0xffe066, 3.5, 0.25);
         ctx.fx.ring(this.pos, 0xffe066, 3.2, 0.35);
         this.parries++;
+        this.bulletParries++;
         this.registerHit(ctx);
       }
       ctx.particles.emit(c, { color: 0xffe066, count: Math.min(30, 8 + n * 3), speed: 8, size: 0.24, life: 0.45 });
@@ -339,6 +358,7 @@ export class Player {
         ctx.hitstop(0.22, 0.05);
         ctx.shake(0.9);
         this.parries++;
+        this.meleeParries++;
         this.registerHit(ctx);
         ctx.particles.emit(c, { color: 0xfff0a0, count: 48, speed: 11, size: 0.3, life: 0.6 });
         ctx.fx.flash(c, 0xfff0a0, 5, 0.3);
@@ -392,7 +412,7 @@ export class Player {
     // 前 = (sin yaw, 0, cos yaw)、右 = 前 × 上 = (-cos yaw, 0, sin yaw)
     this.moveDir.set(Math.sin(yaw) * my - Math.cos(yaw) * mx, 0, Math.cos(yaw) * my + Math.sin(yaw) * mx);
 
-    const canAct = this.alive && this.state !== 'hit';
+    const canAct = this.alive && this.state !== 'hit' && this.state !== 'win';
     const inFree = this.state === 'idle' || this.state === 'run';
 
     // 状態ごとの処理
@@ -438,7 +458,7 @@ export class Player {
     } else if (this.state === 'hit') {
       this.vel.copy(this.knock).multiplyScalar(Math.max(0, 1 - this.st / 0.35));
       if (this.st >= 0.4) { this.state = 'idle'; this.st = 0; }
-    } else if (this.state === 'dead') {
+    } else if (this.state === 'dead' || this.state === 'win') {
       this.vel.multiplyScalar(Math.max(0, 1 - dt * 6));
     }
 
@@ -469,6 +489,7 @@ export class Player {
       case 'parry': pose = poseParry(); rate = 26; break;
       case 'hit': pose = poseHit(); rate = 18; break;
       case 'dead': pose = poseDead(this.rig.hipsHeight); rate = 6; break;
+      case 'win': pose = poseVictory(this.st, this.style.sharp); rate = 9; break;
       default: pose = poseIdle(this.idleT); break;
     }
     if (this.shootPose > 0 && (this.state === 'idle' || this.state === 'run')) pose = poseShoot(pose);

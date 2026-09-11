@@ -154,3 +154,17 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - **Input の操作 UI（#controls、z-index 20）は左半分全体がスティック領域なので、タイトル中に出ているとカードのタップを横取りする**。
   Input.setVisible(false) でタイトルとリザルトでは隠す。beginPlay で表示。過去に「まひろを選んでも反応しない」バグの原因になった
 - タイトルはカードで選択（背景のキャラも即差し替え）→「ゲーム開始」ボタンで開始。UI.selected が選択中のキャラ
+
+## クリア後のスコア（2026-09-11）
+
+- Score.ts が集計。配点はユーザー指定: 打撃ヒット 30万/回、打撃（突進）パリィ 50万/回、弾パリィ 10万/回、
+  ノーダメージ 1000万、タイム 1分以内 100万 / 2分以内 50万 / 3分以内 20万
+- 称号: 神人間 1億 / 鬼人間 5000万 / 上級者人間 1000万 / 一般人人間 300万 / 下手人間 それ未満。
+  **ユーザー指定は「一般人 1000万以下・下手 1000万未満」で境界が重複していたため、下 2 つは 300万で分けた（要確認）**
+- 称号は level 0〜4 で演出が変わる（.rk-lv4 が超派手＝虹色グラデ＋光条＋拍動、lv0 は小さい灰色）
+- カウンタは Player の meleeHits / meleeParries / bulletParries / damaged。reset() で必ず 0 に戻す
+- 勝利演出: Game.setupVictory()。勝者は Player の 'win' 状態（poseVictory、style.sharp で型が変わる）、
+  もう一人は this.partner として scene に直接足して poseClap。カメラは正面 3.3m、注視点を右へずらして被写体を画面左に寄せる
+- リザルトの立ち絵は `public/images/<mahiro|chisato>_cap.png`。無ければ枠ごと非表示（img の error で .noimg）
+- 動作確認: `?t=1&win=42&sec=52&mp=3&bp=7`（勝ちリザルト）、`&lose` で負け、`&dmg` で被弾あり、`&char=chisato` で勝者を変更。
+  注意: この debug 経路は同期ループのため、ヘッドレスだと overlay のフェード途中で撮れて全体が半透明に写ることがある（実機では問題ない）

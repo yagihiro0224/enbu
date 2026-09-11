@@ -58,15 +58,111 @@ const CSS = `
 #swap.hidden { display: none; }
 #swap.cool { opacity: 0.45; }
 #swap:active { transform: scale(0.92); background: rgba(255,120,60,0.6); }
+/* ---- リザルト ---- */
+#result { background: none; flex-direction: row; align-items: stretch; justify-content: flex-end; }
+#result.lose { background: radial-gradient(ellipse at center, rgba(18,4,13,0.94), rgba(5,1,4,0.985)); flex-direction: column; align-items: center; justify-content: center; }
+/* リザルト中は戦闘用の HUD を隠す */
+#hud.result-on #php-wrap, #hud.result-on #bhp-wrap, #hud.result-on #help, #hud.result-on #combo { display: none; }
+#res-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
+  gap: 10px; padding: 16px 30px 16px 40px;
+  background: linear-gradient(90deg, rgba(10,3,9,0) 0%, rgba(12,4,11,0.62) 12%, rgba(12,4,11,0.88) 34%, rgba(12,4,11,0.94) 100%); }
+#result.lose #res-panel { width: min(92vw, 600px); height: auto; align-items: stretch; padding: 20px 28px 22px; border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.14); background: linear-gradient(180deg, rgba(22,7,17,0.94), rgba(9,2,8,0.97)); text-align: center; }
+#result.lose #res-rank, #result.lose #res-title { text-align: center; }
+#result.lose .btnrow { justify-content: center; }
+#res-title { font-size: 13px; letter-spacing: 0.45em; color: #ffd6c0; opacity: 0.85; }
+#res-rank { position: relative; line-height: 1; margin: 2px 0 6px; }
+#res-rank .rk-name { display: block; position: relative; z-index: 1; font-weight: 900; white-space: nowrap; }
+#res-rank .rk-sub { display: block; position: relative; z-index: 1; font-size: 11px; letter-spacing: 0.5em; color: rgba(255,255,255,0.55); margin-top: 6px; }
+#res-rank .rays { position: absolute; left: -14%; top: 50%; width: 128%; aspect-ratio: 1; transform: translateY(-50%); z-index: 0; opacity: 0; pointer-events: none; }
+/* 称号ごとの派手さ: lv4 神 → lv0 下手 */
+.rk-lv4 .rk-name { font-size: clamp(40px, 8.4vw, 104px); letter-spacing: 0.06em; font-style: italic;
+  background: linear-gradient(100deg, #fff7d6 0%, #ffd34a 30%, #ff5ad0 55%, #6ad8ff 80%, #fff7d6 100%); background-size: 260% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 22px rgba(255,180,60,0.95)) drop-shadow(0 0 46px rgba(255,90,200,0.6));
+  animation: rkflow 2.4s linear infinite, rkpop 0.55s cubic-bezier(0.2,1.7,0.4,1) both; }
+.rk-lv4 .rays { opacity: 0.55; animation: rkspin 9s linear infinite;
+  background: repeating-conic-gradient(from 0deg, rgba(255,200,90,0.5) 0deg 5deg, rgba(255,200,90,0) 5deg 16deg);
+  -webkit-mask-image: radial-gradient(circle, #000 12%, transparent 66%); mask-image: radial-gradient(circle, #000 12%, transparent 66%); }
+.rk-lv3 .rk-name { font-size: clamp(34px, 6.6vw, 82px); letter-spacing: 0.08em; font-style: italic;
+  background: linear-gradient(180deg, #fff0f6 0%, #ff6ad0 45%, #8a2cff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 16px rgba(255,80,190,0.8)); animation: rkpop 0.5s cubic-bezier(0.2,1.6,0.4,1) both, rkbeat 1.8s ease-in-out 0.6s infinite; }
+.rk-lv3 .rays { opacity: 0.3; animation: rkspin 14s linear infinite reverse;
+  background: repeating-conic-gradient(from 0deg, rgba(255,90,200,0.4) 0deg 4deg, rgba(255,90,200,0) 4deg 20deg);
+  -webkit-mask-image: radial-gradient(circle, #000 14%, transparent 60%); mask-image: radial-gradient(circle, #000 14%, transparent 60%); }
+.rk-lv2 .rk-name { font-size: clamp(28px, 5vw, 60px); letter-spacing: 0.12em;
+  background: linear-gradient(180deg, #fff6e2, #ffb347 70%, #ff7a3a); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255,150,70,0.55)); animation: rkpop 0.45s ease-out both; }
+.rk-lv1 .rk-name { font-size: clamp(24px, 3.8vw, 44px); letter-spacing: 0.16em; color: #f2ece8; animation: rkfade 0.5s ease-out both; }
+.rk-lv0 .rk-name { font-size: clamp(20px, 3vw, 34px); letter-spacing: 0.2em; color: #9a8f96; animation: rkfade 0.7s ease-out both; }
+.rk-lv0 .rk-sub, .rk-lv1 .rk-sub { color: rgba(255,255,255,0.35); }
+@keyframes rkflow { to { background-position: 260% 0; } }
+@keyframes rkspin { to { transform: translateY(-50%) rotate(360deg); } }
+@keyframes rkpop { from { opacity: 0; transform: scale(2.1) rotate(-5deg); filter: blur(8px); } to { opacity: 1; transform: none; } }
+@keyframes rkbeat { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+@keyframes rkfade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+#res-body { display: flex; align-items: center; gap: 22px; }
+#res-cap { position: relative; flex: 0 0 auto; width: clamp(96px, 15vw, 190px); }
+#res-cap img { display: block; width: 100%; border-radius: 14px; }
+#res-cap::after { content: ''; position: absolute; inset: -8px; border-radius: 18px; pointer-events: none;
+  box-shadow: 0 0 26px var(--tint, #ff3a2a), inset 0 0 0 2px rgba(255,255,255,0.35); opacity: 0.55; }
+#res-cap.noimg { display: none; }
+#res-lines { flex: 1 1 auto; min-width: 0; }
+.res-line { display: flex; align-items: baseline; gap: 10px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.12);
+  opacity: 1; animation: rkfade 0.3s ease-out backwards; }
+.res-line .l { font-size: 13px; color: #ffd6c0; letter-spacing: 0.08em; white-space: nowrap; }
+.res-line .d { font-size: 11px; color: rgba(255,255,255,0.45); flex: 1 1 auto; text-align: left; }
+.res-line .p { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; color: #fff; white-space: nowrap; }
+.res-line.zero .l, .res-line.zero .p { opacity: 0.4; }
+.res-line.big .l { color: #ffe08a; }
+.res-line.big .p { color: #ffe08a; text-shadow: 0 0 12px rgba(255,210,90,0.8); }
+#res-total { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-top: 4px;
+  padding-top: 8px; border-top: 2px solid rgba(255,255,255,0.35); }
+#res-total span { font-size: 12px; letter-spacing: 0.4em; color: #ffd6c0; }
+#res-total b { font-size: clamp(26px, 4.4vw, 52px); font-weight: 900; font-variant-numeric: tabular-nums; color: #fff;
+  text-shadow: 0 0 18px rgba(255,170,80,0.8); }
+#res-stats { font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; }
+#result .btnrow { margin-top: 12px; }
+@media (max-height: 480px) {
+  #res-panel { gap: 3px; padding: 8px 22px 8px 30px; }
+  #res-title { font-size: 11px; letter-spacing: 0.3em; }
+  #res-rank { margin: 0 0 2px; }
+  #res-rank .rk-sub { font-size: 9px; margin-top: 2px; letter-spacing: 0.35em; }
+  .rk-lv4 .rk-name { font-size: clamp(28px, 5.4vw, 54px); }
+  .rk-lv3 .rk-name { font-size: clamp(25px, 4.6vw, 46px); }
+  .rk-lv2 .rk-name { font-size: clamp(22px, 3.8vw, 38px); }
+  .rk-lv1 .rk-name { font-size: clamp(19px, 3vw, 30px); }
+  .rk-lv0 .rk-name { font-size: clamp(17px, 2.6vw, 26px); }
+  #res-body { gap: 14px; }
+  #res-cap { width: clamp(66px, 10vw, 112px); }
+  .res-line { padding: 2px 0; }
+  .res-line .l { font-size: 12px; }
+  .res-line .p { font-size: 13px; }
+  #res-total { padding-top: 5px; margin-top: 2px; }
+  #res-total b { font-size: clamp(22px, 3.4vw, 38px); }
+  #res-total span { font-size: 10px; letter-spacing: 0.25em; }
+  #res-stats { font-size: 10px; }
+  #result .btnrow { margin-top: 6px; }
+  #result .overlay button, #result button { font-size: 15px; padding: 8px 24px; }
+}
+@media (max-aspect-ratio: 1/1), (max-width: 700px) {
+  #result { flex-direction: column; justify-content: flex-end; }
+  #res-panel { width: 100%; height: auto; padding: 14px 18px 20px; justify-content: flex-end;
+    background: linear-gradient(180deg, rgba(10,3,9,0) 0%, rgba(12,4,11,0.55) 26%, rgba(12,4,11,0.93) 46%); }
+  #res-body { gap: 14px; }
+  #res-cap { width: clamp(80px, 22vw, 130px); }
+}
 #help { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6);
   letter-spacing: 0.1em; text-shadow: 0 1px 3px #000; white-space: nowrap; }
 #fps { position: absolute; left: 8px; bottom: 6px; font-size: 10px; color: rgba(255,255,255,0.4); font-family: monospace; }
 `;
 
+import type { ScoreResult } from './Score';
+
 export type CharId = 'mahiro' | 'chisato';
-export const CHARS: Record<CharId, { name: string; file: string }> = {
-  mahiro: { name: '深川まひろ', file: 'player.vrm' },
-  chisato: { name: '杉本ちさと', file: 'chisato.vrm' },
+export const CHARS: Record<CharId, { name: string; file: string; cap: string; tint: string }> = {
+  mahiro: { name: '深川まひろ', file: 'player.vrm', cap: 'mahiro_cap.png', tint: '#ff3a2a' },
+  chisato: { name: '杉本ちさと', file: 'chisato.vrm', cap: 'chisato_cap.png', tint: '#a040ff' },
 };
 
 export class UI {
@@ -85,6 +181,15 @@ export class UI {
   private result: HTMLElement;
   private resultTitle: HTMLElement;
   private resultStats: HTMLElement;
+  private resRank!: HTMLElement;
+  private resRankName!: HTMLElement;
+  private resRankSub!: HTMLElement;
+  private resLines!: HTMLElement;
+  private resTotal!: HTMLElement;
+  private resCap!: HTMLElement;
+  private resImg!: HTMLImageElement;
+  private countRaf = 0;
+  private hud!: HTMLElement;
   private fpsEl: HTMLElement;
   private comboTimer = 0;
   private flashV = 0;
@@ -121,11 +226,20 @@ export class UI {
       </div>
       <button id="swap" class="hidden"><span>交代</span><small>Q</small></button>
       <div class="overlay hidden" id="result">
-        <h1 id="result-title">浄化完了</h1>
-        <div class="stats" id="result-stats"></div>
-        <div class="btnrow"><button id="retry">もう一度</button></div>
+        <div id="res-panel">
+          <div id="res-title">浄化完了</div>
+          <div id="res-rank" class="rk-lv0"><i class="rays"></i><span class="rk-name">下手人間</span><span class="rk-sub">ROOKIE</span></div>
+          <div id="res-body">
+            <div id="res-cap"><img id="res-img" alt=""></div>
+            <div id="res-lines"></div>
+          </div>
+          <div id="res-total"><span>TOTAL SCORE</span><b id="res-total-n">0</b></div>
+          <div id="res-stats"></div>
+          <div class="btnrow"><button id="retry">もう一度</button></div>
+        </div>
       </div>`;
     parent.appendChild(hud);
+    this.hud = hud;
     const q = (s: string) => hud.querySelector(s) as HTMLElement;
     this.php = q('#php > i');
     this.phpGhost = q('#php > b');
@@ -139,8 +253,16 @@ export class UI {
     this.lowhp = q('#lowhp');
     this.title = q('#title');
     this.result = q('#result');
-    this.resultTitle = q('#result-title');
-    this.resultStats = q('#result-stats');
+    this.resultTitle = q('#res-title');
+    this.resultStats = q('#res-stats');
+    this.resRank = q('#res-rank');
+    this.resRankName = q('#res-rank .rk-name');
+    this.resRankSub = q('#res-rank .rk-sub');
+    this.resLines = q('#res-lines');
+    this.resTotal = q('#res-total-n');
+    this.resCap = q('#res-cap');
+    this.resImg = q('#res-img') as HTMLImageElement;
+    this.resImg.addEventListener('error', () => this.resCap.classList.add('noimg'));
     this.fpsEl = q('#fps');
     this.playerName = q('#php-wrap .name');
     this.loadingEl = q('#loading');
@@ -233,11 +355,48 @@ export class UI {
   hideTitle() { this.title.classList.add('hidden'); }
   /** 動作確認用: フェードなしで即座に消す */
   hideTitleNow() { this.title.style.display = 'none'; }
-  showResult(win: boolean, seconds: number, maxCombo: number, parries: number) {
-    this.resultTitle.textContent = win ? '浄化完了' : '散華';
-    this.resultTitle.className = win ? 'res-win' : 'res-lose';
-    this.resultStats.innerHTML = `TIME ${seconds.toFixed(1)}s ／ MAX COMBO ${maxCombo} ／ PARRY ${parries}`;
+  showResult(win: boolean, score: ScoreResult, char: CharId, seconds: number, maxCombo: number) {
+    this.resultTitle.textContent = win ? '浄 化 完 了' : '散 華';
+    this.result.classList.toggle('win', win);
+    this.result.classList.toggle('lose', !win);
+
+    this.resRank.className = `rk-lv${score.rank.level}`;
+    this.resRankName.textContent = score.rank.name;
+    this.resRankSub.textContent = score.rank.sub;
+
+    // 明細（0 点の行も内訳が分かるよう残し、薄く表示）
+    this.resLines.innerHTML = score.lines.map((l, i) => `
+      <div class="res-line${l.points === 0 ? ' zero' : ''}${l.big ? ' big' : ''}" style="animation-delay:${80 + i * 40}ms">
+        <span class="l">${l.label}</span><span class="d">${l.detail}</span><span class="p">${l.points.toLocaleString()}</span>
+      </div>`).join('');
+
+    // 勝ったキャラの立ち絵のみ表示
+    this.resCap.classList.toggle('noimg', !win);
+    if (win) {
+      this.resCap.style.setProperty('--tint', CHARS[char].tint);
+      this.resImg.src = `${import.meta.env.BASE_URL}images/${CHARS[char].cap}`;
+    }
+
+    this.resultStats.textContent = `TIME ${seconds.toFixed(1)}s ／ MAX COMBO ${maxCombo}`;
+    this.hud.classList.add('result-on');
     this.result.classList.remove('hidden');
+    this.countUp(score.total, 420 + score.lines.length * 40);
   }
-  hideResult() { this.result.classList.add('hidden'); }
+
+  /** 合計スコアを数え上げる */
+  private countUp(total: number, delayMs: number) {
+    cancelAnimationFrame(this.countRaf);
+    this.resTotal.textContent = '0';
+    const t0 = performance.now() + delayMs;
+    const dur = 1100;
+    const step = () => {
+      const now = performance.now();
+      const k = Math.min(1, Math.max(0, (now - t0) / dur));
+      const e = 1 - Math.pow(1 - k, 3);
+      this.resTotal.textContent = Math.round(total * e).toLocaleString();
+      if (k < 1) this.countRaf = requestAnimationFrame(step);
+    };
+    this.countRaf = requestAnimationFrame(step);
+  }
+  hideResult() { this.result.classList.add('hidden'); this.hud.classList.remove('result-on'); }
 }
