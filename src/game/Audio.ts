@@ -203,18 +203,18 @@ export class Sfx {
     crack.connect(hp);
     this.envNode(hp, t, 0.03, 0.34, 0.001);
     // 胴鳴り（歪ませて太く）
-    const body = this.osc('triangle', 190 * w, t, 0.2);
-    body.frequency.exponentialRampToValueAtTime(62, t + 0.14);
+    const body = this.osc('triangle', 150 * w, t, 0.26);
+    body.frequency.exponentialRampToValueAtTime(96, t + 0.05);
     const dr = this.drive();
     if (dr) {
       body.connect(dr);
-      const g = this.envNode(dr, t, 0.2, 0.26 * w, 0.002);
-      this.send(g, 0.28);
+      const g = this.envNode(dr, t, 0.26, 0.3 * w, 0.002);
+      this.send(g, 0.3);
     }
-    // 低い芯
-    const sub = this.osc('sine', 96, t, 0.3 * w);
-    sub.frequency.exponentialRampToValueAtTime(34, t + 0.22 * w);
-    this.envNode(sub, t, 0.3 * w, 0.5 * w, 0.002);
+    // 低い芯。下げ幅を小さくして「ボヨン」と跳ねないようにする
+    const sub = this.osc('sine', 72, t, 0.42 * w);
+    sub.frequency.exponentialRampToValueAtTime(46, t + 0.06);
+    this.envNode(sub, t, 0.42 * w, 0.58 * w, 0.003);
     // 余韻
     const tail = this.noiseSrc(t + 0.01, 0.2);
     const lp = this.ctx.createBiquadFilter();
@@ -248,30 +248,49 @@ export class Sfx {
     this.tone(3000 * pitch, 0.07, { type: 'sine', gain: 0.08, end: 1200 * pitch });
   }
 
-  /** 鋭い着弾: 金属質の倍音が短く散る */
-  ping(pitch = 1, heavy = false) {
+  /**
+   * 鋭い着弾（ちさと）: 素手の当たりなので金属音にはせず、
+   * 短い破裂と締まった中域、下に軽い芯を置いて「パンッ」と鳴らす。
+   */
+  sharpHit(pitch = 1, heavy = false) {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const base = 900 * pitch;
-    // 非整数倍の倍音を重ねて金属の質感を作る
-    const parts = [1, 1.83, 2.41, 3.27, 4.61];
-    const gains = [0.22, 0.14, 0.1, 0.068, 0.048];
-    parts.forEach((r, i) => {
-      const dur = (heavy ? 0.3 : 0.17) * (1 - i * 0.1);
-      const o = this.osc('sine', base * r, t, dur);
-      const g = this.envNode(o, t, dur, gains[i] * (heavy ? 1.35 : 1), 0.001);
-      if (i < 2) this.send(g, 0.3);
-    });
-    // 立ち上がりの擦過音
-    const n = this.noiseSrc(t, 0.02);
+    // 立ち上がり
+    const crack = this.noiseSrc(t, 0.014);
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 4800;
+    crack.connect(hp);
+    this.envNode(hp, t, 0.014, 0.3, 0.001);
+    // 締まった中域（これが主役）
+    const snapDur = heavy ? 0.1 : 0.06;
+    const snap = this.noiseSrc(t, snapDur);
     const bp = this.ctx.createBiquadFilter();
     bp.type = 'bandpass';
-    bp.frequency.value = 6500;
-    bp.Q.value = 1.6;
-    n.connect(bp);
-    this.envNode(bp, t, 0.02, 0.26, 0.001);
-    // 下に薄く芯を置いて軽くなりすぎないように
-    this.tone(150, 0.09, { type: 'triangle', gain: 0.1, end: 70 });
+    bp.Q.value = 1.0;
+    bp.frequency.setValueAtTime(1900 * pitch, t);
+    bp.frequency.exponentialRampToValueAtTime(620 * pitch, t + snapDur);
+    snap.connect(bp);
+    const dr = this.drive();
+    let out: AudioNode = bp;
+    if (dr) { bp.connect(dr); out = dr; }
+    const g = this.envNode(out, t, snapDur, heavy ? 0.95 : 0.75, 0.001);
+    this.send(g, 0.22);
+    // 下に置く短い芯
+    const body = this.osc('sine', 240 * pitch, t, heavy ? 0.17 : 0.11);
+    body.frequency.exponentialRampToValueAtTime(84, t + (heavy ? 0.13 : 0.08));
+    this.envNode(body, t, heavy ? 0.17 : 0.11, heavy ? 0.34 : 0.26, 0.002);
+    // 余韻
+    if (heavy) {
+      const tail = this.noiseSrc(t + 0.01, 0.16);
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(2600, t);
+      lp.frequency.exponentialRampToValueAtTime(500, t + 0.16);
+      tail.connect(lp);
+      const tg = this.envNode(lp, t + 0.01, 0.16, 0.12, 0.003);
+      this.send(tg, 0.3);
+    }
   }
 
   hit() {
@@ -281,8 +300,8 @@ export class Sfx {
   heavyHit() {
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const o = this.osc('sawtooth', 150, t, 0.34);
-    o.frequency.exponentialRampToValueAtTime(38, t + 0.26);
+    const o = this.osc('sawtooth', 110, t, 0.44);
+    o.frequency.exponentialRampToValueAtTime(52, t + 0.07);
     const dr = this.drive();
     if (dr) {
       o.connect(dr);
@@ -319,8 +338,22 @@ export class Sfx {
     this.tone(300, 0.25, { type: 'sawtooth', gain: 0.25, end: 80 });
     this.noise(0.2, { gain: 0.3, freq: 500, type: 'lowpass' });
   }
+  /** 敵の発射: 上がる音は跳ねて聞こえるので、低く落ちる音で重さを出す */
   bossShoot() {
-    this.tone(700, 0.1, { type: 'sine', gain: 0.07, end: 1100 });
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const o = this.osc('sine', 200, t, 0.15);
+    o.frequency.exponentialRampToValueAtTime(68, t + 0.11);
+    const g = this.envNode(o, t, 0.15, 0.2, 0.002);
+    this.send(g, 0.16);
+    // 押し出される空気
+    const n = this.noiseSrc(t, 0.06);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(1100, t);
+    lp.frequency.exponentialRampToValueAtTime(280, t + 0.06);
+    n.connect(lp);
+    this.envNode(lp, t, 0.06, 0.16, 0.002);
   }
   bossCharge() {
     this.tone(200, 0.6, { type: 'sawtooth', gain: 0.15, end: 900, attack: 0.3 });

@@ -67,7 +67,7 @@ const CHISATO: FightStyle = {
     sfx.whooshSharp(kind === 'spin' ? 0.8 : kind === 'kick' ? 0.9 : 1.15);
   },
   hit(sfx, kind, heavy) {
-    sfx.ping(kind === 'spin' ? 1.2 : 1, heavy);
+    sfx.sharpHit(kind === 'spin' ? 1.15 : 1, heavy);
   },
 };
 

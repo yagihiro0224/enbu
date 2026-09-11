@@ -285,8 +285,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   `send(node, amount)` で残響へ送り、`drive()` で潰す
 - 打撃は 1 音ではなく重ねて作る: 立ち上がりの破裂（高域ノイズ 0.02〜0.03 秒）＋ 胴鳴り（歪ませた三角波の下降）
   ＋ 低い芯（サイン波の下降）＋ 余韻（ローパスしたノイズを残響へ）
-- ちさとの着弾は**非整数倍の倍音**（1, 1.83, 2.41, 3.27, 4.61）を重ねて金属質にしている
+- **ちさとの着弾は金属音をやめた**（2026-09-11 ユーザー指摘「ちさとの攻撃音、変だよ」）。素手の打撃なので鐘のような倍音は合わない。
+  `sharpHit()` = 高域の破裂 0.014 秒 ＋ 1900→620Hz へ落とす帯域ノイズ（歪ませる）＋ 240→84Hz の短い芯。`ping()` は廃止
+- **低音を速く大きく下げると「ボヨン」と跳ねて聞こえる**（同「ぴょんぴょん過ぎる」）。thud / heavyHit は下げ幅を詰めて
+  （190→62 を 150→96、96→34 を 72→46）長さを伸ばした。敵の発射音も上昇する正弦波をやめ、200→68Hz の下降＋空気のノイズにした
 - 風切りは帯域通過の中心周波数を弧を描くように動かす。**Q を上げるとエネルギーが落ちて聞こえなくなる**ので 0.9〜1.3 に留める
 - `Sfx.bindTo(ctx, dest)` で OfflineAudioContext に繋げる。**検証は `?sfxtest`**（`?sfxtest=ping` のように名前で絞れる）。
-  実測 whooshHeavy 0.147 / thud 0.403 / heavyHit 0.160 / whooshSharp 0.170 / ping 0.242 / pingHeavy 0.309（master 0.5 の前）
+  実測 whooshHeavy 0.148 / thud 0.501 / heavyHit 0.177 / whooshSharp 0.182 / sharpHit 0.291 / sharpHitHeavy 0.439 / bossShoot 0.107（master 0.5 の前）
 - 音を変えたら必ず `?sfxtest` で測る。耳で確認できないので数値が唯一の裏づけ

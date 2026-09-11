@@ -201,8 +201,9 @@ export class Game {
         ['thud', (x) => x.thud()],
         ['heavyHit', (x) => x.heavyHit()],
         ['whooshSharp', (x) => x.whooshSharp()],
-        ['ping', (x) => x.ping(1, false)],
-        ['pingHeavy', (x) => x.ping(1.2, true)],
+        ['sharpHit', (x) => x.sharpHit(1, false)],
+        ['sharpHitHeavy', (x) => x.sharpHit(1.15, true)],
+        ['bossShoot', (x) => x.bossShoot()],
         ['parry', (x) => x.parry()],
       ];
       const only = q.get('sfxtest');
