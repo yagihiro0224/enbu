@@ -123,6 +123,8 @@ export class Game {
     // 2 人の主人公の VRM を読み込む（早送りより先に済ませる）
     const model = q.get('model');
     if (!model && !q.has('novrm')) {
+      // VRM が読み込まれるまで仮のプリミティブ体型は見せない（選択前はまひろを表示する）
+      this.player.group.visible = false;
       const ids = Object.keys(CHARS) as CharId[];
       const loaded = await Promise.all(ids.map(async (id) => {
         try {
@@ -135,6 +137,7 @@ export class Game {
       ids.forEach((id, i) => { this.rigs[id] = loaded[i]; });
       const first = (q.get('char') as CharId | null) ?? 'mahiro';
       this.setChar(this.rigs[first] ? first : ids.find((id) => this.rigs[id]) ?? first);
+      this.player.group.visible = true;
     }
     this.ui.setReady(true);
     if (model) {
