@@ -8,7 +8,7 @@ const CSS = `
 #php { position: relative; width: 100%; }
 #php > i { background: linear-gradient(90deg, #ff3b2f, #ff9a4a); }
 /* 主人公のゲージと重ならないよう、敵のゲージは一段下げる */
-#bhp-wrap { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 42px); transform: translateX(-50%); width: min(46vw, 400px); text-align: center; }
+#bhp-wrap { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 46px); transform: translateX(-50%); width: min(46vw, 400px); text-align: center; }
 #bhp-wrap .name { font-size: 14px; font-weight: 700; letter-spacing: 0.2em; text-shadow: 0 1px 4px #000; margin-bottom: 4px; color: #e8c8ff; }
 #bhp { position: relative; width: 100%; height: 12px; }
 #bhp > i { background: linear-gradient(90deg, #7a2cff, #d05aff, #ff7ad9); }
@@ -61,10 +61,14 @@ const CSS = `
 #startbtn:active { transform: scale(0.95); }
 #startbtn.hidden { display: none; }
 .overlay .hint { margin-top: 18px; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; }
-#swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 46px); pointer-events: auto;
-  width: 64px; height: 44px; border-radius: 22px; border: 2px solid rgba(255,255,255,0.5); background: rgba(40,10,25,0.55); color: #fff; font-family: inherit;
-  font-weight: 700; font-size: 15px; letter-spacing: 0.1em; line-height: 1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: transform 0.06s, opacity 0.2s; }
-#swap small { display: block; font-size: 9px; font-weight: 400; opacity: 0.8; }
+#swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 48px); pointer-events: auto;
+  width: 124px; padding: 5px 8px 6px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.45); background: rgba(40,10,25,0.55); color: #fff; font-family: inherit;
+  text-align: left; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: transform 0.06s, opacity 0.2s; }
+#swap .sw-l { display: inline-block; font-weight: 700; font-size: 12px; letter-spacing: 0.12em; }
+#swap .sw-k { float: right; font-size: 9px; opacity: 0.65; line-height: 16px; }
+#swap .sw-name { display: block; font-size: 10px; color: #ffd6c0; letter-spacing: 0.06em; margin: 1px 0 3px; }
+#swap .sw-hp { position: relative; display: block; height: 7px; border-radius: 4px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.3); overflow: hidden; }
+#swap .sw-hp > i { position: absolute; inset: 0; transform-origin: left; background: linear-gradient(90deg, #3fbf6a, #8ee08a); transition: transform 0.2s; }
 #swap.hidden { display: none; }
 #swap.cool { opacity: 0.45; }
 #swap:active { transform: scale(0.92); background: rgba(255,120,60,0.6); }
@@ -150,6 +154,8 @@ const CSS = `
 #res-stats { font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; }
 #result .btnrow { margin-top: 12px; }
 @media (max-height: 480px) {
+  #swap { width: 108px; padding: 4px 7px 5px; }
+  #swap .sw-name { font-size: 9px; }
   #title h1 { font-size: clamp(28px, 6vw, 46px); }
   #title h1 small { font-size: 0.28em; letter-spacing: 0.5em; margin-top: 1px; }
   #title p { font-size: 11px; line-height: 1.5; margin: 6px 20px; }
@@ -267,7 +273,11 @@ export class UI {
         <button id="startbtn" class="hidden">ゲーム開始</button>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
       </div>
-      <button id="swap" class="hidden"><span>交代</span><small>Q</small></button>
+      <button id="swap" class="hidden">
+        <span class="sw-l">交代</span><span class="sw-k">Q</span>
+        <span class="sw-name">-</span>
+        <span class="sw-hp"><i></i></span>
+      </button>
       <div class="overlay hidden" id="result">
         <div id="res-panel">
           <div id="res-title">浄化完了</div>
@@ -311,6 +321,8 @@ export class UI {
     this.loadingEl = q('#loading');
     this.charsel = q('#charsel');
     this.swapBtn = q('#swap');
+    this.swapName = q('#swap .sw-name');
+    this.swapHp = q('#swap .sw-hp > i');
     for (const im of hud.querySelectorAll<HTMLImageElement>('.cc-img img')) {
       im.addEventListener('error', () => im.parentElement?.classList.add('noimg'));
     }
@@ -329,6 +341,8 @@ export class UI {
   private loadingEl: HTMLElement;
   private charsel: HTMLElement;
   private swapBtn: HTMLElement;
+  private swapName!: HTMLElement;
+  private swapHp!: HTMLElement;
   private cards: HTMLElement[] = [];
   private startBtn: HTMLElement;
   selected: CharId = 'mahiro';
@@ -353,6 +367,11 @@ export class UI {
   setPlaying(v: boolean) { this.hud.classList.toggle('playing', v); }
   setSwapVisible(v: boolean) { this.swapBtn.classList.toggle('hidden', !v); }
   setSwapCooldown(v: boolean) { this.swapBtn.classList.toggle('cool', v); }
+  /** 控えているキャラの名前と体力 */
+  setRest(name: string, frac: number) {
+    this.swapName.textContent = name;
+    this.swapHp.style.transform = `scaleX(${Math.max(0, frac)})`;
+  }
 
   setPlayerHp(frac: number) {
     this.php.style.transform = `scaleX(${Math.max(0, frac)})`;

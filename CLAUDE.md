@@ -225,3 +225,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - Style.ts の kind 'knife' と TrailPart 'knife' は型に残っているが、どの段からも使っていない（将来武器を持たせるとき用）
 - 軌跡の付け先に 'fistR'（右前腕）を追加。右手で打つ段はこれを使う
 - Weapons.ts の createKnife / createStaff は残してある。ボスは今も杖を持つ
+
+## 回復とキャラ別の体力（2026-09-11）
+
+- `Items.ts`: ステージに回復アイテム 3 個（arenaR*0.64 の円周上に等間隔）。触れると +30、1 戦闘につき 1 個 1 回。
+  `restart()` で `items.reset()`。緑の八面体＋ハロー＋地面のリング。**加算合成なのでブルームで飛びやすく、色は控えめの値にしてある**
+- **体力はキャラごと**: Game の `charHp: Record<CharId, number>`。`setChar()` で現在値をしまって交代先を読み出す。
+  控えているキャラは `REST_REGEN = 2.5`/秒で回復（プレイ中のみ）
+- 交代ボタンに控えの名前と体力バーを出す（`UI.setRest`）。控えの体力を見て交代を判断させるため
+- **どちらかが倒れたら負け**は変わらない（操作中のキャラの体力が 0 → `onPlayerDead` → 敗北）。控えは回復しかしないので倒れない
+- 動作確認: `?lowhp=数値` で体力を減らして開始

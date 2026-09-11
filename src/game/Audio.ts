@@ -109,6 +109,11 @@ export class Sfx {
     this.noise(0.25, { gain: 0.5, freq: 900, end: 150, type: 'lowpass' });
     this.tone(120, 0.3, { type: 'sawtooth', gain: 0.25, end: 40 });
   }
+  /** 回復 */
+  heal() {
+    [784, 1047, 1319].forEach((n, i) => this.tone(n, 0.45, { type: 'sine', gain: 0.2, delay: i * 0.07 }));
+    this.noise(0.25, { gain: 0.1, freq: 3000, end: 7000, q: 1.2 });
+  }
   parry() {
     this.tone(1800, 0.25, { type: 'triangle', gain: 0.3, end: 2400 });
     this.tone(2700, 0.4, { type: 'sine', gain: 0.2, delay: 0.03 });

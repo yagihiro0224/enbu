@@ -154,6 +154,15 @@ export class Player {
     return true;
   }
 
+  /** 回復する。上限を超えない */
+  heal(amount: number, ctx: Ctx) {
+    if (!this.alive) return;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    this.healFlash = 1;
+    ctx.ui.setPlayerHp(this.hp / this.maxHp);
+  }
+  private healFlash = 0;
+
   /** 動作確認用: 指定段の攻撃を強制的に開始する */
   debugAttack(step: Step, ctx: Ctx) {
     this.state = 'idle';
@@ -404,6 +413,7 @@ export class Player {
     this.shootCd = Math.max(0, this.shootCd - dt);
     this.shootPose = Math.max(0, this.shootPose - dt);
     this.flash = Math.max(0, this.flash - dt * 6);
+    this.healFlash = Math.max(0, this.healFlash - dt * 1.6);
     this.glow = Math.max(0, this.glow - dt * 3);
     if (this.comboTimer > 0) {
       this.comboTimer -= dt;
@@ -538,6 +548,10 @@ export class Player {
     // 無敵中の点滅
     const blink = this.invuln > 0 && this.invuln < 2 && this.state !== 'dodge' && this.alive ? (Math.sin(this.idleT * 40) > 0 ? 0.35 : 0) : 0;
     this.rig.setFlash(Math.max(this.flash, blink));
+    // 回復中は淡い光の粒をまとう
+    if (this.healFlash > 0 && Math.random() < this.healFlash * 0.7) {
+      ctx.particles.emit(this.center, { color: 0x7cffb0, count: 1, speed: 1.2, size: 0.14, life: 0.5, up: 1.4, drag: 1 });
+    }
     this.rig.setWeaponGlow(this.glow);
 
     ctx.ui.setPlayerHp(this.hp / this.maxHp);

@@ -14,6 +14,7 @@ import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
+import { Items } from './Items';
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -23,6 +24,8 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const ARENA_R = 14;
+/** 控えているキャラが 1 秒あたりに回復する量 */
+const REST_REGEN = 2.5;
 const FOV = 50;
 
 type GState = 'title' | 'play' | 'over';
@@ -45,6 +48,9 @@ export class Game {
   private bullets = new Bullets();
   private particles = new Particles(900);
   private fx = new Fx();
+  private items = new Items(ARENA_R, 3);
+  /** 体力はキャラごとに持つ。控えは少しずつ回復する */
+  private charHp: Record<CharId, number> = { mahiro: 100, chisato: 100 };
   private composer: EffectComposer;
   private bloomOn = true;
   private lowFpsSec = 0;
@@ -83,7 +89,7 @@ export class Game {
     this.scene.background = new THREE.Color(0x1a0b14);
 
     this.arena = createArena(ARENA_R);
-    this.scene.add(this.arena.group, this.bullets.group, this.particles.points, this.fx.group);
+    this.scene.add(this.arena.group, this.bullets.group, this.particles.points, this.fx.group, this.items.group);
 
     // ブルーム（発光）。重い端末では自動で切る
     this.composer = new EffectComposer(this.renderer);
@@ -172,6 +178,12 @@ export class Game {
     if (q.has('hp')) {
       this.boss.setMaxHp(Number(q.get('hp')) || this.boss.maxHp);
       this.ui.setBossHp(1);
+    }
+    // ?lowhp=数値 で主人公の体力を減らして始める（検証用）
+    if (q.has('lowhp')) {
+      this.player.hp = Number(q.get('lowhp')) || 40;
+      this.charHp[this.current] = this.player.hp;
+      this.ui.setPlayerHp(this.player.hp / this.player.maxHp);
     }
     if (q.has('bot')) this.input.bot = true;
     if (q.has('autostart') || q.has('t')) {
@@ -276,12 +288,23 @@ export class Game {
   private setChar(id: CharId) {
     const rig = this.rigs[id];
     if (!rig) return false;
+    // いまのキャラの体力をしまい、交代先の体力を取り出す
+    this.charHp[this.current] = this.player.hp;
     if (this.player.rig !== rig) { this.player.setRig(rig, true); castShadows(rig.root); }
     this.current = id;
+    this.player.hp = this.charHp[id];
     this.player.style = STYLES[id];
     this.fx.playerTrail.setColor(STYLES[id].color, STYLES[id].sharp ? 2.8 : 2.0);
     this.ui.setPlayerName(CHARS[id].name);
+    this.ui.setPlayerHp(this.player.hp / this.player.maxHp);
+    this.refreshRest();
     return true;
+  }
+
+  /** 控えているキャラの表示を更新する */
+  private refreshRest() {
+    const other: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
+    this.ui.setRest(CHARS[other].name, this.charHp[other] / this.player.maxHp);
   }
 
   /** ゲーム中の交代 */
@@ -316,6 +339,9 @@ export class Game {
     this.bullets.clear();
     this.particles.clear();
     this.fx.clear();
+    this.items.reset();
+    this.charHp.mahiro = 100;
+    this.charHp.chisato = 100;
     this.player.reset();
     this.boss.reset();
     this.ui.setBossHp(1);
@@ -335,6 +361,7 @@ export class Game {
     this.input.setVisible(true);
     this.ui.setPlaying(true);
     this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
+    this.refreshRest();
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }
 
@@ -450,6 +477,15 @@ export class Game {
       this.partner.rig.update(dt);
     }
     this.boss.update(dt, this.ctx, playing);
+    this.items.update(dt, this.ctx, playing);
+    // 控えているキャラは少しずつ回復する
+    if (playing) {
+      const other: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
+      if (this.rigs[other] && this.charHp[other] < this.player.maxHp) {
+        this.charHp[other] = Math.min(this.player.maxHp, this.charHp[other] + REST_REGEN * dt);
+        this.refreshRest();
+      }
+    }
     this.bullets.update(dt, (b) => (b.owner === 'boss' ? this.player.center : this.boss.alive ? this.boss.center : null), ARENA_R);
     if (playing) this.collide();
     this.particles.update(dt);
