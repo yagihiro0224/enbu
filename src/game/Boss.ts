@@ -13,13 +13,11 @@ type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead
  */
 const BULLET_DENSITY = 0.2;
 
-/** 本来の体力。スコアの配点とコンボ倍率はこの値を前提に調整してある */
-export const BOSS_HP_NORMAL = 800;
 /**
- * 現在の体力。2026-09-11 時点は **検証用の臨時値**（短く決着させるため半分）。
- * 検証が終わったら BOSS_HP_NORMAL に戻す。`?hp=数値` でも上書きできる。
+ * 敵の体力。スコアの配点とコンボ倍率はこの値を前提に調整してある。
+ * 検証で短く決着させたいときは `?hp=数値` で上書きする（コードの値は動かさない）。
  */
-export const BOSS_HP = 400;
+export const BOSS_HP = 800;
 type Pattern = Generator<number, void, unknown>;
 
 export class Boss {
