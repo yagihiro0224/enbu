@@ -10,7 +10,9 @@ const CSS = `
 #php { position: relative; width: 100%; }
 #php > i { background: linear-gradient(90deg, #ff3b2f, #ff9a4a); }
 /* 主人公のゲージと重ならないよう、敵のゲージは一段下げる */
-#bhp-wrap { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 46px); transform: translateX(-50%); width: min(46vw, 400px); text-align: center; }
+/* 主人公のゲージ（左上）と交代ボタン（左）に被らないよう右へ寄せる。
+   上端は ♪ ボタンの下に来るように 46px 下げてある */
+#bhp-wrap { position: absolute; right: max(16px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 46px); width: min(46vw, 400px); text-align: right; }
 #bhp-wrap .name { font-size: 14px; font-weight: 700; letter-spacing: 0.2em; text-shadow: 0 1px 4px #000; margin-bottom: 4px; color: #e8c8ff; }
 #bhp { position: relative; width: 100%; height: 12px; }
 #bhp > i { background: linear-gradient(90deg, #7a2cff, #d05aff, #ff7ad9); }

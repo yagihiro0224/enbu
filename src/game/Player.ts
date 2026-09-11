@@ -13,6 +13,9 @@ const DODGE_DUR = 0.34;
 const PARRY_WINDOW = 0.24;
 const PARRY_DUR = 0.38;
 
+/** 敵から受けるダメージの倍率。難易度調整（2026-09-11 に 1.0 → 1.2） */
+const ENEMY_DMG_MUL = 1.2;
+
 export class Player {
   readonly group = new THREE.Group();
   /** 戦闘スタイル（キャラごとに差し替える） */
@@ -132,7 +135,8 @@ export class Player {
   takeDamage(dmg: number, ctx: Ctx, from?: THREE.Vector3): boolean {
     if (!this.alive) return false;
     if (this.invuln > 0 || this.state === 'dodge') return false;
-    this.hp = Math.max(0, this.hp - dmg);
+    // 敵から受けるダメージはすべてここを通るので、難易度の倍率もここで掛ける
+    this.hp = Math.max(0, this.hp - dmg * ENEMY_DMG_MUL);
     this.damaged = true;
     this.invuln = 0.9;
     this.combo = 0;

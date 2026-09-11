@@ -7,8 +7,11 @@ import type { Ctx } from './Ctx';
 import type { Fx } from './Fx';
 
 type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead';
-/** 敵の弾の密度（2026-09-11 ユーザー指示で 1/10 に） */
-const BULLET_DENSITY = 0.1;
+/**
+ * 敵の弾の密度。1.0 で元の弾幕そのまま。
+ * 2026-09-11 にユーザー指示で 1/10 にし、同日の難易度上げで倍の 0.2 にした
+ */
+const BULLET_DENSITY = 0.2;
 
 /** 本来の体力。スコアの配点とコンボ倍率はこの値を前提に調整してある */
 export const BOSS_HP_NORMAL = 800;

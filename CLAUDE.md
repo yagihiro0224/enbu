@@ -326,3 +326,12 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   `?nobitmap&t=3&hittest` で戦闘中、`?hittest` 単体でタイトルの状態を見る。
   交代ボタンは 2 人そろっている必要があるので `?novrm` では出ない（VRM を読む形で確認すること）
 - 修正前は `hittest #swap: NG 手前は #stick-zone`、修正後は `OK`。z-index を戻して再現も確認済み
+
+## 難易度上げとゲージの配置（2026-09-11）
+
+- 敵の弾を 2 倍に。`BULLET_DENSITY` 0.1 → **0.2**（元の弾幕の 1/5）
+- 敵から受けるダメージを 1.2 倍に。Player.ts の **`ENEMY_DMG_MUL`** で一括。
+  弾（Game.collide）も突進（Boss の lunge、素の値 22）もすべて `Player.takeDamage` を通るので、増やすならここだけ触る
+- 敵の HP ゲージは中央寄せをやめて**右寄せ**（`#bhp-wrap` を right 指定、text-align: right）。
+  左上の主人公のゲージと左の交代ボタンに被らないようにするため。上端は ♪ ボタンの下に来るよう 46px 下げてある
+- **ボスの体力は今も検証用の 400 のまま**（本来は 800）。難易度の話をするときはここを忘れないこと
