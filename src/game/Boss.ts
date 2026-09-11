@@ -16,8 +16,8 @@ export class Boss {
   pos = new THREE.Vector3(0, 0, -6);
   heading = 0;
   vel = new THREE.Vector3();
-  hp = 800;
-  maxHp = 800;
+  hp = 400;
+  maxHp = 400;
   radius = 0.55;
   poise = 0;
   poiseMax = 110;

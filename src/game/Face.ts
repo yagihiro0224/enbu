@@ -193,3 +193,84 @@ export function impactTexture(spikes = 14): THREE.CanvasTexture {
   }
   return finish(c);
 }
+
+/** 敵の弾。中心の光、二重の輪、外周の粒と光条 */
+export function orbTexture(): THREE.CanvasTexture {
+  const S = 160;
+  const { c, g } = canvas(S, S);
+  const cx = S / 2;
+  g.translate(cx, cx);
+  // 外側のほのかな光
+  const halo = g.createRadialGradient(0, 0, 0, 0, 0, cx);
+  halo.addColorStop(0, 'rgba(255,255,255,0.3)');
+  halo.addColorStop(0.42, 'rgba(255,255,255,0.16)');
+  halo.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = halo;
+  g.beginPath();
+  g.arc(0, 0, cx, 0, Math.PI * 2);
+  g.fill();
+  // 光条
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+    const grad = g.createLinearGradient(0, 0, Math.cos(a) * cx, Math.sin(a) * cx);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(0.55, 'rgba(255,255,255,0.4)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad;
+    const w = 0.035 * Math.PI * 2;
+    g.beginPath();
+    g.moveTo(Math.cos(a - w) * cx * 0.42, Math.sin(a - w) * cx * 0.42);
+    g.lineTo(Math.cos(a) * cx, Math.sin(a) * cx);
+    g.lineTo(Math.cos(a + w) * cx * 0.42, Math.sin(a + w) * cx * 0.42);
+    g.closePath();
+    g.fill();
+  }
+  // 二重の輪
+  const ring = (r: number, w: number, a: number) => {
+    g.strokeStyle = `rgba(255,255,255,${a})`;
+    g.lineWidth = w;
+    g.beginPath();
+    g.arc(0, 0, r, 0, Math.PI * 2);
+    g.stroke();
+  };
+  ring(cx * 0.58, 9, 0.22);
+  ring(cx * 0.58, 5, 0.9);
+  ring(cx * 0.44, 1.6, 0.45);
+  // 外周の粒
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    g.fillStyle = 'rgba(255,255,255,0.85)';
+    g.beginPath();
+    g.arc(Math.cos(a) * cx * 0.74, Math.sin(a) * cx * 0.74, 2.6, 0, Math.PI * 2);
+    g.fill();
+  }
+  // 中心の芯
+  const core = g.createRadialGradient(0, 0, 0, 0, 0, cx * 0.38);
+  core.addColorStop(0, 'rgba(255,255,255,1)');
+  core.addColorStop(0.4, 'rgba(255,255,255,0.75)');
+  core.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = core;
+  g.beginPath();
+  g.arc(0, 0, cx * 0.38, 0, Math.PI * 2);
+  g.fill();
+  return finish(c);
+}
+
+/** 針の弾。先端ほど明るい縦のグラデーション */
+export function needleTexture(): THREE.CanvasTexture {
+  const w = 8, h = 64;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const g = c.getContext('2d')!;
+  // v=1 が先端
+  const grad = g.createLinearGradient(0, h, 0, 0);
+  grad.addColorStop(0, '#5a4a66');
+  grad.addColorStop(0.45, '#b8a0d0');
+  grad.addColorStop(0.85, '#ffffff');
+  grad.addColorStop(1, '#ffffff');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}

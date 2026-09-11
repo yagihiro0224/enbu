@@ -62,11 +62,12 @@ export const RANKS: (Rank & { min: number })[] = [
  * コンボ倍率。ボーナスの合計にこれを掛ける。
  * ボスの体力から打撃は 70 発前後が上限で、ボーナスの合計は最大でも 3700 万ほど。
  * そのままでは鬼人間（5000万）に届かず神人間（1億）は出せないので、
- * 途切れずに攻め続けた分を倍率にして上位へ届くようにしている（最大コンボ 80 で 3 倍）。
+ * 途切れずに攻め続けた分を倍率にして上位へ届くようにしている（最大コンボ 60 で 4 倍）。
+ * 2026-09-11 に敵の体力を半分にしたため、打撃の上限も半分になった。それに合わせて倍率の上限を 3 倍から 4 倍に上げている。
  */
-export const MULT_CAP_COMBO = 80;
+export const MULT_CAP_COMBO = 60;
 export function comboMult(maxCombo: number): number {
-  return 1 + Math.min(maxCombo, MULT_CAP_COMBO) / 40;
+  return 1 + Math.min(maxCombo, MULT_CAP_COMBO) / 20;
 }
 
 /** クリアタイムのボーナス */

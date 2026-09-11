@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { needleTexture, orbTexture } from './Face';
 
 export type Owner = 'boss' | 'player' | 'reflect';
 export type Kind = 0 | 1 | 2; // 0: 光弾, 1: 針, 2: 炎（プレイヤー射撃）
@@ -48,6 +49,8 @@ export class Bullets {
   readonly list: Bullet[] = [];
   private meshes: THREE.InstancedMesh[] = [];
   private glows: THREE.InstancedMesh[] = [];
+  private orbMat: THREE.ShaderMaterial;
+  private t = 0;
   private m = new THREE.Matrix4();
   private q = new THREE.Quaternion();
   private s = new THREE.Vector3();
@@ -59,10 +62,48 @@ export class Bullets {
       new THREE.CapsuleGeometry(1, 5, 2, 8),
       new THREE.SphereGeometry(1, 8, 6).scale(1, 1, 2.4),
     ];
+    // 丸い弾はカメラを向く板に模様を描く（球だと塗りつぶした円に見えるため）
+    geos[0] = new THREE.PlaneGeometry(2, 2);
+    this.orbMat = new THREE.ShaderMaterial({
+      uniforms: { uMap: { value: orbTexture() }, uTime: { value: 0 } },
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vTint;
+        void main() {
+          vUv = uv;
+          #ifdef USE_INSTANCING_COLOR
+            vTint = instanceColor;
+          #else
+            vTint = vec3(1.0);
+          #endif
+          // インスタンスの中心をビューに移し、板をカメラに正対させる
+          vec4 mv = modelViewMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+          float s = length(instanceMatrix[0].xyz) * 1.75;
+          mv.xy += position.xy * s;
+          gl_Position = projectionMatrix * mv;
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uMap;
+        uniform float uTime;
+        varying vec2 vUv;
+        varying vec3 vTint;
+        void main() {
+          // 模様をゆっくり回す
+          vec2 p = vUv - 0.5;
+          float c = cos(uTime), sn = sin(uTime);
+          p = mat2(c, -sn, sn, c) * p;
+          vec4 t = texture2D(uMap, p + 0.5);
+          gl_FragColor = vec4(vTint * 2.1 * t.rgb, t.a);
+        }`,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+    });
+    const needle = needleTexture();
     for (let k = 0 as Kind; k < 3; k++) {
       const geo = geos[k];
       // ブルームに乗るよう 1.0 を超える明るさで描く
-      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, 1.8, 1.8), toneMapped: false });
+      const mat: THREE.Material = k === 0
+        ? this.orbMat
+        : new THREE.MeshBasicMaterial({ color: new THREE.Color(1.8, 1.8, 1.8), toneMapped: false, map: k === 1 ? needle : null });
       const mesh = new THREE.InstancedMesh(geo, mat, CAP[k]);
       mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
       mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(CAP[k] * 3), 3).setUsage(THREE.DynamicDrawUsage);
@@ -78,6 +119,8 @@ export class Bullets {
       glow.instanceColor = mesh.instanceColor;
       glow.count = 0;
       glow.frustumCulled = false;
+      // 丸い弾は板そのものに光が描いてあるので、別の発光は使わない
+      if (k === 0) glow.visible = false;
       this.meshes.push(mesh);
       this.glows.push(glow);
       this.group.add(mesh, glow);
@@ -123,6 +166,8 @@ export class Bullets {
   }
 
   update(dt: number, target: (b: Bullet) => THREE.Vector3 | null, arenaR: number) {
+    this.t += dt;
+    this.orbMat.uniforms.uTime.value = this.t * 0.6;
     for (const b of this.list) {
       if (!b.active) continue;
       b.life -= dt;

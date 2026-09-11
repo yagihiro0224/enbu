@@ -3,11 +3,12 @@ const CSS = `
 .bar { position: absolute; height: 14px; border-radius: 7px; background: rgba(0,0,0,0.5); border: 1.5px solid rgba(255,255,255,0.35); overflow: hidden; }
 .bar > i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; transition: transform 0.12s; }
 .bar > b { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left; background: rgba(255,255,255,0.55); transition: transform 0.5s ease-out 0.2s; }
-#php-wrap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top)); width: min(38vw, 260px); }
+#php-wrap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: max(12px, env(safe-area-inset-top)); width: min(32vw, 240px); }
 #php-wrap .name { font-size: 13px; font-weight: 700; letter-spacing: 0.15em; text-shadow: 0 1px 4px #000; margin-bottom: 4px; color: #ffd6c0; }
 #php { position: relative; width: 100%; }
 #php > i { background: linear-gradient(90deg, #ff3b2f, #ff9a4a); }
-#bhp-wrap { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); width: min(50vw, 420px); text-align: center; }
+/* 主人公のゲージと重ならないよう、敵のゲージは一段下げる */
+#bhp-wrap { position: absolute; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 42px); transform: translateX(-50%); width: min(46vw, 400px); text-align: center; }
 #bhp-wrap .name { font-size: 14px; font-weight: 700; letter-spacing: 0.2em; text-shadow: 0 1px 4px #000; margin-bottom: 4px; color: #e8c8ff; }
 #bhp { position: relative; width: 100%; height: 12px; }
 #bhp > i { background: linear-gradient(90deg, #7a2cff, #d05aff, #ff7ad9); }
@@ -60,7 +61,7 @@ const CSS = `
 #startbtn:active { transform: scale(0.95); }
 #startbtn.hidden { display: none; }
 .overlay .hint { margin-top: 18px; font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 0.1em; }
-#swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 44px); pointer-events: auto;
+#swap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 46px); pointer-events: auto;
   width: 64px; height: 44px; border-radius: 22px; border: 2px solid rgba(255,255,255,0.5); background: rgba(40,10,25,0.55); color: #fff; font-family: inherit;
   font-weight: 700; font-size: 15px; letter-spacing: 0.1em; line-height: 1; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: transform 0.06s, opacity 0.2s; }
 #swap small { display: block; font-size: 9px; font-weight: 400; opacity: 0.8; }
