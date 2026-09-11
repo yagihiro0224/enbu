@@ -189,3 +189,6 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   sharp（ちさと）は振幅 0.78 倍で控えめ。もう一人は poseClap で拍手し続ける
 - 動作確認: `?win=42&vt=秒` で勝利後の経過時間を指定して撮る（finish の hitstop 2.2 秒が 0.3 倍速なので、
   実時間 vt に対しゲーム内時間はおよそ `0.3*min(vt,2.2) + max(0, vt-2.2)`）。`?dance` で連続コマも撮れる
+
+- キャラ選択のカードにも立ち絵を入れた（`.cc-img`、リザルトと同じ左バストアップの切り出し）。未選択は彩度と明度を落とし、選択中はキャラ色で光る。
+- 戦闘用 HUD（HP バー・交代・コンボ・操作説明）は `#hud.playing` のときだけ出す。タイトルとリザルトでは隠れる。

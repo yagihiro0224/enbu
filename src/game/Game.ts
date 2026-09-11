@@ -316,6 +316,7 @@ export class Game {
     this.input.reset();
     this.input.enabled = true;
     this.input.setVisible(true);
+    this.ui.setPlaying(true);
     this.ui.setSwapVisible(!!(this.rigs.mahiro && this.rigs.chisato));
     this.ui.showBanner('浄化開始', '#ffd6c0', 1.2);
   }

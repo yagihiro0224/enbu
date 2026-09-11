@@ -40,12 +40,21 @@ const CSS = `
 .overlay .res-lose { background: linear-gradient(180deg, #d0c0ff, #8a5aff); -webkit-background-clip: text; background-clip: text; }
 .charsel { display: flex; gap: 18px; margin-top: 22px; flex-wrap: wrap; justify-content: center; }
 .charsel.hidden { display: none; }
-.charcard { pointer-events: auto; min-width: 180px; padding: 16px 26px; border-radius: 16px; border: 2px solid rgba(255,214,192,0.7);
-  background: linear-gradient(180deg, rgba(60,20,40,0.7), rgba(20,6,14,0.85)); color: #fff; font-family: inherit; cursor: pointer; transition: transform 0.1s, border-color 0.1s; }
-.charcard b { display: block; font-size: 22px; letter-spacing: 0.2em; }
-.charcard small { display: block; font-size: 10px; letter-spacing: 0.3em; color: #ffd6c0; margin-top: 4px; }
-.charcard:hover, .charcard:active { transform: scale(1.05); border-color: #ffb347; }
-.charcard.selected { border-color: #ffb347; background: linear-gradient(180deg, rgba(255,120,60,0.55), rgba(160,30,20,0.7)); box-shadow: 0 0 18px rgba(255,150,80,0.5); }
+.charcard { pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  min-width: 150px; padding: 12px 18px 14px; border-radius: 16px; border: 2px solid rgba(255,214,192,0.5);
+  background: linear-gradient(180deg, rgba(60,20,40,0.7), rgba(20,6,14,0.85)); color: #fff; font-family: inherit; cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s; }
+.charcard b { display: block; font-size: 20px; letter-spacing: 0.18em; }
+.charcard small { display: block; font-size: 9px; letter-spacing: 0.24em; color: #ffd6c0; margin-top: 2px; }
+.cc-img { display: block; width: clamp(92px, 12vw, 140px); aspect-ratio: 0.64; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.18); transition: box-shadow 0.12s; }
+.cc-img img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 2% center;
+  transition: filter 0.12s; filter: saturate(0.45) brightness(0.62); }
+.cc-img.noimg { display: none; }
+.charcard:hover, .charcard:active { transform: scale(1.04); border-color: rgba(255,255,255,0.75); }
+.charcard.selected { border-color: var(--tint, #ffb347); box-shadow: 0 0 20px -2px var(--tint, #ffb347); }
+.charcard.selected .cc-img { box-shadow: 0 0 0 2px rgba(255,255,255,0.6), 0 0 22px var(--tint, #ffb347); }
+.charcard.selected .cc-img img { filter: none; }
 #startbtn { pointer-events: auto; margin-top: 22px; font-size: 22px; font-weight: 900; padding: 14px 44px; border-radius: 34px; border: 2px solid #ffe0a0;
   background: linear-gradient(180deg, #ffb347, #ff5a2a); color: #fff; letter-spacing: 0.3em; font-family: inherit; cursor: pointer; box-shadow: 0 0 22px rgba(255,120,60,0.6); }
 #startbtn:active { transform: scale(0.95); }
@@ -61,7 +70,8 @@ const CSS = `
 /* ---- リザルト ---- */
 #result { background: none; flex-direction: row; align-items: stretch; justify-content: flex-end; }
 #result.lose { background: radial-gradient(ellipse at center, rgba(18,4,13,0.94), rgba(5,1,4,0.985)); flex-direction: column; align-items: center; justify-content: center; }
-/* リザルト中は戦闘用の HUD を隠す */
+/* 戦闘用の HUD はプレイ中だけ出す（タイトルとリザルトでは隠す） */
+#hud:not(.playing) #php-wrap, #hud:not(.playing) #bhp-wrap, #hud:not(.playing) #help, #hud:not(.playing) #combo,
 #hud.result-on #php-wrap, #hud.result-on #bhp-wrap, #hud.result-on #help, #hud.result-on #combo { display: none; }
 #res-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
   gap: 10px; padding: 16px 30px 16px 40px;
@@ -139,6 +149,17 @@ const CSS = `
 #res-stats { font-size: 11px; color: rgba(255,255,255,0.5); letter-spacing: 0.1em; }
 #result .btnrow { margin-top: 12px; }
 @media (max-height: 480px) {
+  #title h1 { font-size: clamp(28px, 6vw, 46px); }
+  #title h1 small { font-size: 0.28em; letter-spacing: 0.5em; margin-top: 1px; }
+  #title p { font-size: 11px; line-height: 1.5; margin: 6px 20px; }
+  .charsel { gap: 12px; margin-top: 10px; }
+  .charcard { min-width: 0; padding: 8px 12px 10px; gap: 5px; }
+  .charcard b { font-size: 16px; letter-spacing: 0.12em; }
+  .charcard small { font-size: 8px; letter-spacing: 0.18em; }
+  .cc-img { width: clamp(62px, 8vw, 88px); }
+  #startbtn { margin-top: 8px; font-size: 17px; padding: 9px 32px; }
+  .overlay .hint { margin-top: 6px; font-size: 10px; }
+  #title p { margin: 4px 20px; }
   #res-panel { gap: 3px; padding: 8px 22px 8px 30px; }
   #res-title { font-size: 11px; letter-spacing: 0.3em; }
   #res-rank { margin: 0 0 2px; }
@@ -178,10 +199,11 @@ const CSS = `
 import type { ScoreResult } from './Score';
 
 export type CharId = 'mahiro' | 'chisato';
-export const CHARS: Record<CharId, { name: string; file: string; cap: string; tint: string }> = {
-  mahiro: { name: '深川まひろ', file: 'player.vrm', cap: 'mahiro_cap.png', tint: '#ff3a2a' },
-  chisato: { name: '杉本ちさと', file: 'chisato.vrm', cap: 'chisato_cap.png', tint: '#a040ff' },
+export const CHARS: Record<CharId, { name: string; sub: string; file: string; cap: string; tint: string }> = {
+  mahiro: { name: '深川まひろ', sub: 'FUKAGAWA MAHIRO', file: 'player.vrm', cap: 'mahiro_cap.png', tint: '#ff3a2a' },
+  chisato: { name: '杉本ちさと', sub: 'SUGIMOTO CHISATO', file: 'chisato.vrm', cap: 'chisato_cap.png', tint: '#a040ff' },
 };
+export const CHAR_IDS = Object.keys(CHARS) as CharId[];
 
 export class UI {
   private php: HTMLElement;
@@ -235,9 +257,11 @@ export class UI {
         <p>妖魔の少女・紫苑が放つ立体弾幕を、回避と受け流しでさばきながらコンボを叩き込め。<br>
         「受」は弾に触れる直前に押すと弾き返して反撃できる。「避」は無敵で突っ切れる。</p>
         <div class="tap" id="loading">読み込み中…</div>
-        <div class="charsel hidden" id="charsel">
-          <button class="charcard" data-char="mahiro"><b>深川まひろ</b><small>FUKAGAWA MAHIRO</small></button>
-          <button class="charcard" data-char="chisato"><b>杉本ちさと</b><small>SUGIMOTO CHISATO</small></button>
+        <div class="charsel hidden" id="charsel">${CHAR_IDS.map((id) => `
+          <button class="charcard" data-char="${id}" style="--tint:${CHARS[id].tint}">
+            <span class="cc-img"><img src="${import.meta.env.BASE_URL}images/${CHARS[id].cap}" alt=""></span>
+            <b>${CHARS[id].name}</b><small>${CHARS[id].sub}</small>
+          </button>`).join('')}
         </div>
         <button id="startbtn" class="hidden">ゲーム開始</button>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
@@ -286,6 +310,9 @@ export class UI {
     this.loadingEl = q('#loading');
     this.charsel = q('#charsel');
     this.swapBtn = q('#swap');
+    for (const im of hud.querySelectorAll<HTMLImageElement>('.cc-img img')) {
+      im.addEventListener('error', () => im.parentElement?.classList.add('noimg'));
+    }
     this.cards = Array.from(hud.querySelectorAll<HTMLElement>('.charcard'));
     for (const b of this.cards) {
       b.addEventListener('click', (e) => { e.stopPropagation(); this.select(b.dataset.char as CharId); });
@@ -321,6 +348,8 @@ export class UI {
     this.startBtn.classList.toggle('hidden', !ready);
   }
   setPlayerName(name: string) { this.playerName.textContent = name; }
+  /** 戦闘用 HUD の表示。タイトル中は出さない */
+  setPlaying(v: boolean) { this.hud.classList.toggle('playing', v); }
   setSwapVisible(v: boolean) { this.swapBtn.classList.toggle('hidden', !v); }
   setSwapCooldown(v: boolean) { this.swapBtn.classList.toggle('cool', v); }
 
