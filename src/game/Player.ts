@@ -525,10 +525,11 @@ export class Player {
           ctx.fx.playerTrail.push(b, t);
           ctx.particles.emit(t, { color: pc, count: sharp ? 2 : 3, speed: 1.5, size: sharp ? 0.09 : 0.15, life: 0.25, drag: 3 });
         } else {
-          // 拳: 左の前腕（肘→拳）
-          const arm = this.rig.lowerArmL;
+          // 拳: 前腕（肘→拳）。左右は trail で選ぶ
+          const right = cfg.trail === 'fistR';
+          const arm = right ? this.rig.lowerArmR : this.rig.lowerArmL;
           const b = arm.localToWorld(new THREE.Vector3(0, 0, 0));
-          const t = arm.localToWorld(new THREE.Vector3(this.rig.height * 0.2, 0, 0));
+          const t = arm.localToWorld(new THREE.Vector3((right ? -1 : 1) * this.rig.height * 0.2, 0, 0));
           ctx.fx.playerTrail.push(b, t);
           ctx.particles.emit(t, { color: pc, count: 2, speed: 1.2, size: sharp ? 0.08 : 0.13, life: 0.2, drag: 3 });
         }

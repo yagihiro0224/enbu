@@ -123,7 +123,7 @@ export class Animator {
 // 腕を下ろす: 左 z 負、右 z 正。腕を前へ: 左 y 負、右 y 正。
 // 脚を前へ: x 負。膝を曲げる（かかとを上げる）: x 正。
 
-/** 待機: 逆手ナイフの格闘の構え（オーソドックス。左足・左肩が前、左拳を顎の前、右のナイフを胸の前で刃を下に） */
+/** 待機: 素手の格闘の構え（オーソドックス。左足・左肩が前、左拳を顎の前、右は胸の前でガード） */
 const IDLE_SPINE: Vec3 = [0.1, -0.35, 0];
 const IDLE_ARMS = arms({ L: [[0.35, -0.85, 0.4], [-0.15, 0.8, 0.55]], R: [[-0.35, -0.9, 0.3], [0.1, 0.75, 0.65]] }, IDLE_SPINE);
 export function poseIdle(t: number): Pose {
@@ -240,7 +240,7 @@ const SPIN: [number, Pose][] = [
 /**
  * 5 段の格闘コンボ。p は 0..1 の進行度。
  * 各段は 予備動作（ゆっくり）→ 打撃（2〜3 コマで伸び切る）→ 行き過ぎて止まる → 戻り、の順。
- * 1 ジャブ、2 フック（ナイフ）、3 アッパー、4 ハイキック、5 ジャンプ回し蹴り
+ * 1 ジャブ、2 右フック、3 アッパー、4 ハイキック、5 ジャンプ回し蹴り
  */
 export function poseAttack(step: 1 | 2 | 3 | 4 | 5, p: number): Pose {
   switch (step) {
@@ -373,7 +373,7 @@ export function poseFloat(t: number): Pose {
   };
 }
 
-// ---- 杉本ちさと: 鋭い型。刺突ジャブ → ナイフの斜め切り下ろし → 切り上げ → 前蹴り → 回転切り ----
+// ---- 杉本ちさと: 鋭い型。刺突ジャブ → 手刀の振り下ろし → 掌底の切り上げ → 前蹴り → 回転裏拳 ----
 const C_JAB: [number, Pose][] = [
   [0, GUARD],
   key(0.1, [0.05, -0.2, 0], { L: [[0.4, -0.7, 0.5], [-0.2, 0.6, 0.7]], R: GR }, { hipsY: -0.05 }),
@@ -426,7 +426,7 @@ export function poseAttackChisato(step: 1 | 2 | 3 | 4 | 5, p: number): Pose {
     case 3: return poseSeq(C_UPSLASH, p);
     case 4: return poseSeq(C_FRONTKICK, p);
     default: {
-      // 地上で腰を一回転させる回転切り（0.3〜0.7）
+      // 地上で腰を一回転させる回転裏拳（0.3〜0.7）
       const spin = clamp((p - 0.3) / 0.4, 0, 1);
       const seq = poseSeq(C_WHIRL, p);
       seq.hipsYaw = spin >= 1 ? 0 : -smoothstep(spin) * Math.PI * 2;

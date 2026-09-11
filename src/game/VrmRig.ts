@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin, VRMUtils, type VRM, type VRMHumanBoneName } from '@pixiv/three-vrm';
 import type { Rig } from './Rig';
-import { createKnife } from './Weapons';
 
 /**
  * public/models/player.vrm があれば読み込んで Rig にする。無ければ null。
@@ -54,8 +53,6 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     }
   });
 
-  const katana = createKnife();
-  get('rightHand').add(katana.group);
 
   // 指の骨（T ポーズで指は ±X 方向、掌は下向き）。握る = Z 回転で掌側（-Y）へ曲げる
   const fingerBones = (side: 'left' | 'right') => {
@@ -98,7 +95,7 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
     upperLegR: get('rightUpperLeg'),
     lowerLegR: get('rightLowerLeg'),
     handR: get('rightHand'),
-    weapon: katana,
+    weapon: null,
     hairBones: [],
     hipsHeight: hips.position.y,
     height: 1.6,
@@ -108,8 +105,8 @@ export async function tryLoadVrm(url: string): Promise<Rig | null> {
         else { m.emissive.copy(base); m.emissiveIntensity = baseI; }
       }
     },
-    setWeaponGlow(v) {
-      katana.setGlow(v);
+    setWeaponGlow() {
+      // 素手なので光らせる武器はない
     },
     setFist(l, r) {
       curl(fL, 1, l);

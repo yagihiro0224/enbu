@@ -94,7 +94,7 @@ export class Game {
 
     this.player = new Player(createFigure({
       hair: 0x1a1020, hairTip: 0xff4a1a, eye: 0xff6a2a, top: 0xf8f0ea, sleeve: 0xd8302a, skirt: 0xd0281e, accent: 0xffb347, socks: 0x1a1020,
-      hairStyle: 'ponytail', weapon: 'knife',
+      hairStyle: 'ponytail', weapon: 'none',
     }));
     this.boss = new Boss(createFigure({
       hair: 0xf0e8ff, hairTip: 0xa060ff, eye: 0xc040ff, skin: 0xfff0f4, top: 0x2a1040, sleeve: 0x4a2080, skirt: 0x3a1560, accent: 0xff60d0, socks: 0x2a1040,
@@ -162,7 +162,7 @@ export class Game {
         const gltf = await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/${model}.glb`);
         let mesh: THREE.Mesh | null = null;
         gltf.scene.traverse((o) => { if (!mesh && (o as THREE.Mesh).isMesh) mesh = o as THREE.Mesh; });
-        if (mesh) { this.player.setRig(autoRig(mesh, { height: 1.65, weapon: true })); castShadows(this.player.group); }
+        if (mesh) { this.player.setRig(autoRig(mesh, { height: 1.65 })); castShadows(this.player.group); }
         console.info(`model ${model} loaded in ${performance.now().toFixed(0)}ms`);
       } catch (e) {
         console.warn('モデルの読み込みに失敗', e);

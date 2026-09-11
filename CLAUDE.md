@@ -218,3 +218,10 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   検証が終わったら 800 に戻す。`?hp=数値` でも上書きできる。
   **臨時値を前提にスコアやバランスを恒久調整しないこと**（一度やって戻した）
 - HP ゲージは重ならないよう、敵のゲージを 42px 下げ、幅も主人公 min(32vw,240px) / 敵 min(46vw,400px) に狭めた
+
+## ナイフの廃止（2026-09-11）
+
+- ユーザー指示で武器を外し、**全段を素手の格闘**にした。VrmRig / Figure / AutoRig は武器を付けない（`weapon: 'none'` / `weapon: null`）
+- Style.ts の kind 'knife' と TrailPart 'knife' は型に残っているが、どの段からも使っていない（将来武器を持たせるとき用）
+- 軌跡の付け先に 'fistR'（右前腕）を追加。右手で打つ段はこれを使う
+- Weapons.ts の createKnife / createStaff は残してある。ボスは今も杖を持つ
