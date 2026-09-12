@@ -254,7 +254,12 @@ const CSS = `
 #music { z-index: 5; position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
   width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(40,10,25,0.5);
   color: #fff; font-size: 16px; line-height: 1; font-family: inherit; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: opacity 0.2s; }
-#music.off { opacity: 0.42; }
+/* 切れていることが一目で分かるように、斜線を引いて色も落とす。
+   薄くするだけだと気づかれず「BGM が聞こえない」と言われた（2026-09-12） */
+#music.off { opacity: 0.55; color: rgba(255,255,255,0.55); border-color: rgba(255,255,255,0.3); }
+#music.off::after { content: ''; position: absolute; left: 50%; top: 50%; width: 128%; height: 2px;
+  background: #ff8a8a; border-radius: 2px; transform: translate(-50%, -50%) rotate(-45deg);
+  box-shadow: 0 0 6px rgba(255,90,90,0.8); }
 #music:active { transform: scale(0.92); }
 #fps { position: absolute; left: 8px; bottom: 6px; font-size: 10px; color: rgba(255,255,255,0.4); font-family: monospace; }
 `;
@@ -423,6 +428,8 @@ export class UI {
       this.onMusicToggle(this.musicOn);
     });
     try { this.musicOn = localStorage.getItem('enbu.music') !== '0'; } catch { /* 既定は鳴らす */ }
+    // ?nomusic で切った状態から始める（見た目の確認用）
+    if (new URLSearchParams(location.search).has('nomusic')) this.musicOn = false;
     this.musicBtn.classList.toggle('off', !this.musicOn);
     this.select('mahiro');
     this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });

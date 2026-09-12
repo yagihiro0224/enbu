@@ -458,3 +458,12 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   - **クレジット表記が規約で必要**。README に書いてある
 - `public/audio/voice/local/` は `.gitignore` 済み。**手元だけで鳴らしたい音声はここへ置く**（同じ名前なら優先される）。
   公開して差し支えないものだけ `public/audio/voice/` に直接置く
+
+## BGM が聞こえないとき（2026-09-12）
+
+- まず疑うのは **♪ ボタンが切れている**こと。`localStorage` の `enbu.music` に残るので、一度切ると次回も切れたまま。
+  薄くなるだけで気づかれなかったため、**赤い斜線を引いて一目で分かる**ようにした。`?nomusic` でその見た目を確認できる
+- 次に疑うのは **まだ一度も画面に触れていない**こと。AudioContext は操作がないと開けないので、
+  タイトルでキャラを選ぶまで音は出ない（`UI.onGesture` → `ensureMusic`）
+- ファイルとコードの確認は `?bgmtest`（置かれている mp3 の名前を出す）と、
+  `curl -o /dev/null -w "%{http_code} %{content_type}" <URL>/audio/boss_battle_bgm_001.MP3`
