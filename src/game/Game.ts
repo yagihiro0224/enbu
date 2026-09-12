@@ -484,6 +484,14 @@ export class Game {
     hitAt: number;
     burst2: boolean;
     burst3: boolean;
+    /** 突き抜けた先。当てたあとも止まらず進む */
+    over: THREE.Vector3;
+    /** 踏み切りの演出を出したか */
+    leapt: boolean;
+    /** 次に軌跡を置くまでの残り時間 */
+    trail: number;
+    /** 敵を押し戻す残り時間 */
+    knock: number;
     group: THREE.Group;
     carrier: Rig;   // ちさと
     rammer: Rig;    // まひろ
@@ -674,7 +682,9 @@ export class Game {
     this.player.group.visible = false;
 
     this.sup = {
-      t: 0, hit: false, hitAt: 0, burst2: false, burst3: false, group, carrier, rammer,
+      t: 0, hit: false, hitAt: 0, burst2: false, burst3: false,
+      over: stop.clone().addScaledVector(dir, 2.6), leapt: false, trail: 0, knock: 0,
+      group, carrier, rammer,
       carrierAnim: new Animator(carrier), rammerAnim: new Animator(rammer),
       from, to: stop, dir, yaw,
     };
@@ -700,6 +710,30 @@ export class Game {
     if (t > SUP_CUTIN) k = Math.min(1, (t - SUP_CUTIN) / SUP_DASH);
     const ease = k * k * (3 - 2 * k);
     sp.group.position.lerpVectors(sp.from, sp.to, ease);
+    // 当てたあとも止まらず突き抜ける
+    if (sp.hit) {
+      const o = Math.min(1, (t - sp.hitAt) / 0.42);
+      sp.group.position.lerpVectors(sp.to, sp.over, o * o * (3 - 2 * o));
+    }
+
+    // 踏み切り。足元に衝撃波と土煙を出す
+    if (!sp.leapt && k > 0) {
+      sp.leapt = true;
+      const foot = sp.from.clone();
+      this.fx.ring(foot, 0xffc247, 5, 0.45);
+      this.particles.emit(foot, { color: 0xffd6a0, count: 26, speed: 7, size: 0.24, life: 0.5 });
+      this.ctx.shake(0.7);
+    }
+
+    // 飛んでいる間、通った跡に輪を置いて速さを見せる
+    if (k > 0 && !sp.hit) {
+      sp.trail -= dt;
+      if (sp.trail <= 0) {
+        sp.trail = 0.045;
+        const p = sp.group.position;
+        this.fx.ring(new THREE.Vector3(p.x, 0, p.z), 0xff9a50, 2.2, 0.28);
+      }
+    }
     // 溜めで沈み、踏み切って宙へ。前を上げた斜めの姿勢で飛ぶ
     const crouch = t < SUP_CUTIN ? -0.12 * Math.min(1, t / 0.45) : 0;
     const lift = k > 0 ? Math.sin(Math.min(1, k * 1.15) * Math.PI * 0.78) * 0.62 : 0;
@@ -747,10 +781,20 @@ export class Game {
       this.ui.flash(0.55);
       this.ui.showBanner('頭突き！', '#ffe08a', 1.4);
       this.player.superHits++;
+      sp.knock = 0.32; // この秒数だけ敵を押し戻す
       // 必ず当たる。大きく削って無防備にする
       this.boss.takeDamage(SUP_DAMAGE, 0, this.ctx);
       if (this.boss.alive) this.boss.stagger(SUP_STAGGER, this.ctx);
       console.info('super: 着弾');
+    }
+
+    // 当てた直後、敵を後ろへ押し戻す。少しずつ動かすので髪も暴れない
+    if (sp.knock > 0) {
+      sp.knock -= dt;
+      this.boss.pos.addScaledVector(sp.dir, 4.2 * dt);
+      const lim = this.ctx.arenaR - 1.0;
+      const l = Math.hypot(this.boss.pos.x, this.boss.pos.z);
+      if (l > lim) { this.boss.pos.x *= lim / l; this.boss.pos.z *= lim / l; }
     }
 
     // 着弾のあと、間を置いて追い討ちの輪と火花。一発で終わらせず余韻を作る
@@ -1258,16 +1302,26 @@ export class Game {
       // 必殺技: 見せ場は横から寄り、突進中は少し引いて追う
       const sp = this.sup;
       const right = this.tmp.set(sp.dir.z, 0, -sp.dir.x);
-      // 二人ぶんの真ん中。抱えられている側が前に出ているぶん、注視点を前へずらす
       // 跳ぶと高さが変わるので、注視点も一緒に上げる
       const mid = new THREE.Vector3(sp.group.position.x, 1.15 + sp.group.position.y * 0.9, sp.group.position.z)
         .addScaledVector(sp.dir, 1.0);
       const close = sp.t < SUP_CUTIN;
+      // **溜めのあいだカメラが回り込む**。止まった絵にならないように
+      const ang = 0.75 * Math.min(1, sp.t / SUP_CUTIN);
+      const arm = right.clone().multiplyScalar(Math.cos(ang)).addScaledVector(sp.dir, Math.sin(ang));
+      // 当てた直後はぐっと寄り、そのあと引く
+      let dist = close ? 4.4 : 6.0;
+      if (sp.hit) {
+        const since = sp.t - sp.hitAt;
+        dist = since < 0.3 ? 3.0 : 3.0 + Math.min(1, (since - 0.3) / 0.7) * 3.4;
+      }
       desired = mid.clone()
-        .addScaledVector(right, close ? 4.6 : 6.0)
-        .addScaledVector(sp.dir, close ? 0.2 : -1.6);
-      desired.y = close ? 1.9 : 2.6 + sp.group.position.y * 0.5;
+        .addScaledVector(arm, dist)
+        .addScaledVector(sp.dir, close ? 0.2 : -1.2);
+      desired.y = close ? 1.75 + sp.t * 0.5 : 2.5 + sp.group.position.y * 0.5;
       look = mid.clone();
+      // 当てたあとは敵の側を見る
+      if (sp.hit) look.lerp(this.boss.center, 0.55);
     } else if (this.state === 'over') {
       // 二人を正面から。**縦画面ではスコア面板が下半分を覆う**ので、
       // 注視点を下げて二人を画面の上へ追い出す
