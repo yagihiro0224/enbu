@@ -41,6 +41,35 @@ function castShadows(root: THREE.Object3D) {
   });
 }
 
+/**
+ * 文字をクリップボードへ写す。
+ * navigator.clipboard が使えない場面（http のページなど）では、
+ * 画面外の入力欄を使う昔ながらの方法に落とす。
+ */
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 下の方法を試す
+  }
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 export class Game {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
@@ -321,6 +350,12 @@ export class Game {
           pl.damaged = q.has('dmg');
           this.playTime = Number(q.get('sec') ?? 52);
           this.finish(!q.has('lose'));
+          // ?sharetest で共有する文面を確かめる（クリップボードには触らない）
+          if (q.has('sharetest')) {
+            console.info(`sharetest 指で触る端末=${matchMedia('(pointer: coarse)').matches}`);
+            console.info(`sharetest 文面=${this.shareText()}`);
+            console.info(`sharetest リンク=${location.origin + location.pathname}`);
+          }
           for (let i = 0; i < Number(q.get('vt') ?? 3.4) * 60; i++) this.step(1 / 60);
           // ?dance で勝利の踊りを 15fps の連続コマにして貼る
           if (q.has('dance')) {
@@ -499,23 +534,36 @@ export class Game {
   }
 
   /** 結果を共有する。共有機能が無ければクリップボードへ写す */
-  private async share() {
+  /**
+   * 結果を共有する。
+   * **パソコンの共有画面はリンクだけを渡す先が多く、点数が消える**ので、
+   * 指で触る端末のときだけ端末の共有を使い、それ以外は文面ごとクリップボードへ写す。
+   */
+  /** 共有する文面。リンクは別に渡すので含めない */
+  private shareText() {
     const e = this.myEntry;
-    const text = e
-      ? `炎舞 -ENBU- で ${e.score.toLocaleString()} 点（${e.rank}）を出した。${e.char}／${e.seconds.toFixed(1)}秒`
-      : '炎舞 -ENBU- で遊んでみて';
+    return e
+      ? `炎舞 -ENBU- で ${e.score.toLocaleString()} 点（${e.rank}）を出した。${e.char}／${e.seconds.toFixed(1)}秒 #炎舞ENBU`
+      : '炎舞 -ENBU- で遊んでみて #炎舞ENBU';
+  }
+
+  private async share() {
+    const text = this.shareText();
     const url = location.origin + location.pathname;
-    try {
-      const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
-      if (nav.share) {
+    const body = `${text}\n${url}`;
+
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+    if (coarse && nav.share) {
+      try {
         await nav.share({ title: '炎舞 -ENBU-', text, url });
         return;
+      } catch {
+        // 共有をやめただけのこともあるので、続けてコピーを試す
       }
-      await navigator.clipboard.writeText(`${text}\n${url}`);
-      this.ui.showBanner('コピーしました', '#ffd6a0', 1.2);
-    } catch {
-      this.ui.showBanner('共有できませんでした', '#ffa0a0', 1.2);
     }
+    if (await copyText(body)) this.ui.showBanner('結果をコピーしました', '#ffd6a0', 1.4);
+    else this.ui.showBanner('コピーできませんでした', '#ffa0a0', 1.4);
   }
 
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */

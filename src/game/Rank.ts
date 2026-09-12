@@ -53,6 +53,18 @@ export function cleanName(v: string) {
   return s || 'ななし';
 }
 
+/**
+ * 検証用の起動かどうか。
+ * ?win などは結果をでっち上げる指定なので、**本番のランキングに書き込んではいけない**。
+ * 開発サーバー（localhost）からの書き込みも同じ理由で止める。
+ */
+function isDebugRun() {
+  const q = new URLSearchParams(location.search);
+  const forged = ['win', 'lose', 'bot', 'hp', 'lowhp', 't', 'rankdemo', 'sharetest'];
+  if (forged.some((k) => q.has(k))) return true;
+  return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+}
+
 /** サーバーの URL。?rank=<url> で差し替えられる（検証用） */
 function endpoint() {
   const q = new URLSearchParams(location.search).get('rank');
@@ -125,6 +137,11 @@ export class Ranking {
   async submitShared(e: Entry): Promise<Entry[] | null> {
     const url = endpoint();
     if (!url) return null;
+    // でっち上げた結果や開発中の起動は送らない
+    if (isDebugRun()) {
+      console.info('ランキングへの登録は検証用の起動なので見送った');
+      return null;
+    }
     try {
       const { mine, ...body } = e;
       void mine;

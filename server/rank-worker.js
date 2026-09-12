@@ -126,10 +126,16 @@ export default {
       const entry = sanitize(body);
       if (!entry) return json({ error: 'おかしな記録' }, 400);
 
-      const list = limitPerName([...(await read(kv)), entry].sort(byScore)).slice(0, KEEP);
-      await kv.put(KEY, JSON.stringify(list));
+      const current = await read(kv);
+      const list = limitPerName([...current, entry].sort(byScore)).slice(0, KEEP);
       const rank = list.findIndex((e) => e.at === entry.at && e.score === entry.score) + 1;
-      return json({ entries: list, rank });
+
+      // 上位に入らなかった記録では書き込まない。
+      // 無料枠の書き込みは 1 日 1,000 回までなので、大人数が遊ぶときはここが効く
+      if (rank === 0) return json({ entries: current.slice(0, 50), rank: 0, stored: false });
+
+      await kv.put(KEY, JSON.stringify(list));
+      return json({ entries: list, rank, stored: true });
     }
 
     return json({ error: '対応していない方法' }, 405);
