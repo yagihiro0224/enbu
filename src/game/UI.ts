@@ -588,7 +588,8 @@ export class UI {
 
   /** タイトルから開くランキング */
   showRankBoard(entries: Entry[], note: string, meAt = 0) {
-    this.renderList(this.rankList, entries, meAt, 20);
+    // 10 位まで。自分がそこから外れていたら末尾に自分の行を足す
+    this.renderList(this.rankList, entries, meAt, 10);
     this.rankNote.textContent = note;
     this.rankBoard.classList.remove('hidden');
   }
