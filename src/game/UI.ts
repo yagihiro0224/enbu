@@ -422,6 +422,9 @@ export class UI {
       this.musicOn = !this.musicOn;
       this.musicBtn.classList.toggle('off', !this.musicOn);
       try { localStorage.setItem('enbu.music', this.musicOn ? '1' : '0'); } catch { /* 保存できなくても動く */ }
+      // **♪ を押すのも立派な操作**。ここで音を開けておかないと、
+      // 切った状態で開いたときにキャラを選ぶまで鳴らない
+      this.onGesture();
       this.onMusicToggle(this.musicOn);
     });
     try { this.musicOn = localStorage.getItem('enbu.music') !== '0'; } catch { /* 既定は鳴らす */ }

@@ -162,7 +162,7 @@ export class Bgm {
     const t = this.ctx.currentTime;
     this.bus.gain.cancelScheduledValues(t);
     this.bus.gain.setValueAtTime(this.bus.gain.value, t);
-    this.bus.gain.linearRampToValueAtTime(v ? 0 : GAINS[this.intensity], t + 0.4);
+    this.bus.gain.linearRampToValueAtTime(this.vol, t + 0.4);
   }
 
   /** その濃さで実際に鳴らすファイル名。無ければ戦闘曲に落とす */
@@ -188,16 +188,20 @@ export class Bgm {
     return buf;
   }
 
+  /** いま出すべき音量。muted と濃さから毎回求める */
+  private get vol() {
+    return this.muted ? 0 : GAINS[this.intensity];
+  }
+
   private async apply() {
     const name = this.pick(this.intensity);
-    const vol = this.muted ? 0 : GAINS[this.intensity];
 
     // 同じ曲のままなら音量だけ動かす
     if (this.playing === name) {
       const t = this.ctx.currentTime;
       this.bus.gain.cancelScheduledValues(t);
       this.bus.gain.setValueAtTime(this.bus.gain.value, t);
-      this.bus.gain.linearRampToValueAtTime(vol, t + CROSSFADE);
+      this.bus.gain.linearRampToValueAtTime(this.vol, t + CROSSFADE);
       return;
     }
 
@@ -239,9 +243,11 @@ export class Bgm {
       old.stop(t + CROSSFADE + 0.05);
     }
 
+    // **音量は読み込みを待ったあとに計算し直す**。
+    // 待っている間に ♪ を押されていると、古い値で上書きして無音のままになる
     this.bus.gain.cancelScheduledValues(t);
     this.bus.gain.setValueAtTime(this.bus.gain.value, t);
-    this.bus.gain.linearRampToValueAtTime(vol, t + CROSSFADE);
+    this.bus.gain.linearRampToValueAtTime(this.vol, t + CROSSFADE);
     this.settleFirst(true);
   }
 

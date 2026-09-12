@@ -19,11 +19,6 @@ import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
 
-/**
- * 曲の読み込みをこの時間だけ待ち、間に合わなければ合成 BGM でつなぐ。
- * 短くすると毎回つなぎが鳴って耳障りになる（ユーザー指摘「古い BGM が少し流れる」）
- */
-const BGM_BRIDGE_MS = 1500;
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -155,7 +150,8 @@ export class Game {
     this.ui.onRetry = () => this.restart();
     this.ui.onSwap = () => this.swap();
     // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
-    this.ui.onGesture = () => { this.ensureMusic(); this.setMusicLv(0); };
+    // ♪ ボタンからも呼ばれるので、戦闘中に濃さを戻してしまわないよう場面を見る
+    this.ui.onGesture = () => { this.ensureMusic(); if (this.state === 'title') this.setMusicLv(0); };
     this.ui.onMusicToggle = (on) => { for (const m of this.musicAll) m.setMuted(!on); };
     // 名前とランキング
     this.ui.setName(this.ranking.name);
@@ -610,14 +606,13 @@ export class Game {
         m.setMuted(!this.ui.musicOn);
         m.start();
         m.setIntensity(this.musicLv);
-        return m;
+        this.music = m;
+        this.musicAll = [m];
       };
 
-      // mp3 が無ければ合成 BGM だけ
+      // mp3 が無ければ合成 BGM
       if (!files) {
-        const synth = startSynth();
-        this.music = synth;
-        this.musicAll = [synth];
+        startSynth();
         return;
       }
 
@@ -627,28 +622,11 @@ export class Game {
       bgm.setMuted(!this.ui.musicOn);
       bgm.start();
       bgm.setIntensity(this.musicLv);
-
-      // **曲がすぐ始まるなら合成音は鳴らさない**。
-      // 待たされるときだけ、つなぎとして合成 BGM を入れる
-      let synth: Music | null = null;
-      const bridge = window.setTimeout(() => {
-        if (this.music !== bgm) return;
-        synth = startSynth();
-        this.musicAll = [bgm, synth];
-      }, BGM_BRIDGE_MS);
-
+      // 読み込みに失敗したときだけ合成 BGM に戻す
       void bgm.ready().then((ok) => {
-        clearTimeout(bridge);
-        if (ok) {
-          synth?.stop(1.0); // つなぎを引く
-          this.musicAll = [bgm];
-          return;
-        }
-        // mp3 が読めなかったので合成 BGM に戻す
+        if (ok || this.music !== bgm) return;
         bgm.dispose();
-        const m = synth ?? startSynth();
-        this.music = m;
-        this.musicAll = [m];
+        startSynth();
       });
     });
   }
