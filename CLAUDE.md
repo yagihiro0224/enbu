@@ -182,8 +182,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - **スマホ（`pointer: coarse`）のときだけ全画面にする**（2026-09-12 ユーザー指示「常に全画面モードにしたい」）。
   2026-09-11 には「急に全画面になるのはやめたい」と言われて外していたので、**方針が反転している**。
   パソコンでは全画面にしない
-  - 呼ぶのは `enterFullscreenOnPhone()`。**操作の中でしか要求できない**ので、最初に画面へ触れたとき（音を開ける処理と同じ場所）と
+  - 呼ぶのは `enterFullscreenOnPhone()`。**操作の中でしか要求できない**ので、最初に画面へ触れたときと
     `beginPlay()` の 2 か所から呼ぶ。断られても黙って続ける
+  - 触れる端末の判定は `navigator.maxTouchPoints > 0 || 'ontouchstart' in window || pointer: coarse`。
+    **`pointer: coarse` だけだと外れる端末がある**（効かないと指摘されて広げた）
+  - 最初に触れたときの待ち受けは、音が開けているかに関わらず必ず張る
   - **iPhone の Safari は全画面に対応していない**ので何も起きない。ホーム画面に追加して起動すれば manifest の `display: fullscreen` が効く
   - 画面の向きのロックは引き続き行わない。
   なお `public/manifest.webmanifest` の `display: fullscreen` はホーム画面に追加して起動したときだけ効くもので、プレイ中の切り替えとは別物。
@@ -572,3 +575,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - タイトルへ戻すときは `ui.showTitle()`（`?t=` で `display:none` にしていた場合も戻す）、
   操作 UI を隠し、BGM の濃さを 0 に、背景のキャラを選択中のものへ差し替える
 - 検証は `?t=1&win=42&sec=52&totitle`
+
+## 横画面でタイトルが収まらない（2026-09-12 修正）
+
+- 症状: スマホを横にすると「ゲーム開始」が画面の外に出て押せない
+- 原因: タイトルは縦に積む作りで、高さが足りない画面を考えていなかった
+- 対処: 高さで 2 段階に詰める。`max-height: 560px` で説明文を隠して全体を縮め、
+  `max-height: 430px` でさらに詰める（英字の副題やヒントも消す）。`#title` は `overflow-y: auto` で最後の逃げ道
+- 検証: ヘッドレスの `--window-size=860,400` と `700,300` で「ゲーム開始」が見えることを確認する

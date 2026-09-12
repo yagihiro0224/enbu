@@ -808,6 +808,13 @@ export class Game {
    * 開けなければ最初の操作（どこを触っても可）で開き直す
    */
   private tryStartMusicNow() {
+    // 最初の操作で全画面にする。音が開けているかに関わらず一度は待ち構える
+    const once = () => {
+      this.enterFullscreenOnPhone();
+      for (const ev of ['pointerdown', 'touchstart'] as const) window.removeEventListener(ev, once);
+    };
+    for (const ev of ['pointerdown', 'touchstart'] as const) window.addEventListener(ev, once, { passive: true });
+
     this.ensureMusic();
     if (this.state === 'title') this.setMusicLv(0);
     if (this.sfx.state === 'running') {
@@ -942,7 +949,9 @@ export class Game {
    * iPhone の Safari は全画面に対応していないので何も起きない（ホーム画面に追加すれば manifest 側で全画面になる）
    */
   private enterFullscreenOnPhone() {
-    if (!matchMedia('(pointer: coarse)').matches) return;
+    // 触れる端末かどうかで判定する。`pointer: coarse` だけだと外れる端末がある
+    const touch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window || matchMedia('(pointer: coarse)').matches;
+    if (!touch) return;
     if (document.fullscreenElement) return;
     const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
     try {

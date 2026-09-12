@@ -292,6 +292,41 @@ const CSS = `
 
 /* タイトルやリザルトのオーバーレイに隠れないよう手前に出す
    （以前はタイトル中に ♪ を押せなかった） */
+/* 横画面など高さの足りない画面。**そのままだと「ゲーム開始」が画面の外へ出る** */
+@media (max-height: 560px) {
+  #title { justify-content: flex-start; padding: 10px 0 14px; overflow-y: auto; }
+  .overlay h1 { font-size: clamp(24px, 5.2vh, 44px); letter-spacing: 0.18em; }
+  .overlay h1 small { font-size: 0.26em; letter-spacing: 0.4em; margin-top: 2px; }
+  #title p { display: none; }
+  .charsel { gap: 12px; margin-top: 10px; }
+  .charcard { padding: 6px 10px 8px; gap: 4px; }
+  .charcard b { font-size: 15px; }
+  .charcard small { font-size: 8px; }
+  .cc-img { width: clamp(64px, 13vh, 104px); }
+  #nameRow { margin-top: 10px; }
+  #pname { padding: 6px 10px; font-size: 14px; }
+  #startbtn { margin-top: 12px; font-size: 18px; padding: 10px 32px; }
+  #title .hint { margin-top: 6px; font-size: 10px; }
+}
+
+/* さらに低い画面（スマホの横向き）。目一杯詰める */
+@media (max-height: 430px) {
+  #title { padding: 6px 0 8px; }
+  .overlay h1 { font-size: clamp(17px, 4vh, 26px); letter-spacing: 0.1em; }
+  .overlay h1 small { font-size: 0.24em; margin-top: 0; }
+  .charsel { margin-top: 4px; gap: 10px; }
+  .charcard { padding: 4px 8px 6px; }
+  .charcard b { font-size: 13px; letter-spacing: 0.12em; }
+  .charcard small { display: none; }
+  .cc-img { width: clamp(42px, 9.6vh, 66px); }
+  #nameRow { margin-top: 6px; gap: 6px; }
+  #nameRow label { font-size: 10px; }
+  #pname { width: 118px; padding: 5px 8px; font-size: 13px; }
+  #rankbtn { font-size: 11px; padding: 5px 12px; }
+  #startbtn { margin-top: 6px; font-size: 15px; padding: 7px 26px; }
+  #title .hint, #audiohint { display: none; }
+}
+
 #music { z-index: 5; position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
   width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(40,10,25,0.5);
   color: #fff; font-size: 16px; line-height: 1; font-family: inherit; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: opacity 0.2s; }
