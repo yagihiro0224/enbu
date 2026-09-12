@@ -11,8 +11,11 @@
  *   POST <endpoint>  Entry(JSON) → { entries: Entry[], rank: number }
  */
 
-/** みんなで共有するランキングの URL。空なら端末内だけの記録になる */
-const RANK_ENDPOINT = '';
+/**
+ * みんなで共有するランキングの URL。空なら端末内だけの記録になる。
+ * 実体は Cloudflare Workers（server/rank-worker.js、KV 名前空間 enbu-rank）。2026-09-12 に用意した
+ */
+const RANK_ENDPOINT = 'https://enbu-rank.yagi-hiro-0224.workers.dev/';
 
 /** 名前の最大文字数 */
 export const NAME_MAX = 12;

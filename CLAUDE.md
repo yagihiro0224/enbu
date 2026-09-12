@@ -340,8 +340,12 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 
 - `Rank.ts` が記録の保存と送信を持つ。**端末内（localStorage）は常に動き、共有サーバーは任意**
   - 名前 `enbu.name`、記録 `enbu.rank`（上位 100 件）。名前は `cleanName()` で制御文字を落として 12 文字に切る
-  - 共有を有効にするには `RANK_ENDPOINT` に URL を入れる。**検証は `?rank=<URL>` で書き換えずに試せる**
+  - 共有は有効。`RANK_ENDPOINT` = `https://enbu-rank.yagi-hiro-0224.workers.dev/`（2026-09-12 にユーザーの
+    Cloudflare アカウントで用意。Worker 名 enbu-rank、KV 名前空間 enbu-rank を変数名 RANK で結び付け）。
+    **検証は `?rank=<URL>` で書き換えずに差し替えられる**
 - サーバーは `server/rank-worker.js`（Cloudflare Workers + KV）。手順は `server/README.md`。
+  **KV は変数名が RANK でなくても動く**（`kvOf()` が get と put を持つ結び付けを探す）。結び付け忘れは 500 と説明文を返す。
+  記録を全部消したいときは、ダッシュボードの KV Pairs でキー `top` を削除する
   GET は上位を返し、POST は 1 件足して更新後の上位と順位を返す。同じ名前は最高記録 3 件までに絞っている
 - **点数はブラウザが計算して送るので偽装できる**。友達うちで遊ぶ前提の作り。README にもそう書いた
 - 画面: タイトルに名前入力（`#pname`）と「ランキング」（`#rankbtn`）、リザルトに上位 5 件（`#res-rankbox`）と「結果を共有」。
