@@ -467,7 +467,9 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 対処:
   1. **ページを開いた時点で曲の中身を落とし始める**（Bgm.ts の `prefetch()`）。
      音を鳴らせるのは画面に触れてからだが、ダウンロードは待つ必要がない
-  2. **読み込みが終わるまで合成 BGM でつなぐ**。用意できたら合成音を 1 秒かけて引き、曲へ入れ替える。
+  2. **待たされるときだけ合成 BGM でつなぐ**。`BGM_BRIDGE_MS`（1.5 秒）待って曲が始まらなければ合成音を入れ、
+     曲が用意できたら 1 秒かけて引く。**すぐ始まるときは合成音を鳴らさない**
+     （最初は無条件につないでいて「古い BGM が少し流れる」と指摘された）。
      切り替え中は 2 つ並ぶので、Game は `musicAll` に両方を持ち、♪ ボタンと濃さの指定を両方へ届ける
 - `decodeAudioData` は渡した中身を消費するので、先に取った ArrayBuffer は `slice(0)` で写しを渡すこと
 - **画面に音の状態を出す `?audiodbg` を追加**。音の土台（AudioContext）の状態、BGM が合成か mp3 か、

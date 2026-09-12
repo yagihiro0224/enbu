@@ -18,6 +18,12 @@ import { Ranking, cleanName, type Entry } from './Rank';
 import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
+
+/**
+ * 曲の読み込みをこの時間だけ待ち、間に合わなければ合成 BGM でつなぐ。
+ * 短くすると毎回つなぎが鳴って耳障りになる（ユーザー指摘「古い BGM が少し流れる」）
+ */
+const BGM_BRIDGE_MS = 1500;
 import { Animator, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
@@ -598,31 +604,51 @@ export class Game {
     void this.bgmProbe.then((files) => {
       this.musicPending = false;
       if (this.music) return;
-      // 曲の読み込みは数秒かかる。**その間を合成音でつなぐ**（以前はここが無音だった）
-      const synth = new Music(a.ctx, a.dest, a.noise);
-      this.music = synth;
-      this.musicAll = [synth];
-      synth.setMuted(!this.ui.musicOn);
-      synth.start();
-      synth.setIntensity(this.musicLv);
-      if (!files) return;
+
+      const startSynth = () => {
+        const m = new Music(a.ctx, a.dest, a.noise);
+        m.setMuted(!this.ui.musicOn);
+        m.start();
+        m.setIntensity(this.musicLv);
+        return m;
+      };
+
+      // mp3 が無ければ合成 BGM だけ
+      if (!files) {
+        const synth = startSynth();
+        this.music = synth;
+        this.musicAll = [synth];
+        return;
+      }
 
       const bgm = new Bgm(a.ctx, a.dest, files);
-      this.musicAll.push(bgm);
+      this.music = bgm;
+      this.musicAll = [bgm];
       bgm.setMuted(!this.ui.musicOn);
       bgm.start();
       bgm.setIntensity(this.musicLv);
+
+      // **曲がすぐ始まるなら合成音は鳴らさない**。
+      // 待たされるときだけ、つなぎとして合成 BGM を入れる
+      let synth: Music | null = null;
+      const bridge = window.setTimeout(() => {
+        if (this.music !== bgm) return;
+        synth = startSynth();
+        this.musicAll = [bgm, synth];
+      }, BGM_BRIDGE_MS);
+
       void bgm.ready().then((ok) => {
-        if (!ok) {
-          // mp3 が読めなかった。合成音のまま続ける
-          bgm.dispose();
-          this.musicAll = [synth];
+        clearTimeout(bridge);
+        if (ok) {
+          synth?.stop(1.0); // つなぎを引く
+          this.musicAll = [bgm];
           return;
         }
-        // 曲が鳴り出したので合成音を引く
-        synth.stop(1.0);
-        this.music = bgm;
-        this.musicAll = [bgm];
+        // mp3 が読めなかったので合成 BGM に戻す
+        bgm.dispose();
+        const m = synth ?? startSynth();
+        this.music = m;
+        this.musicAll = [m];
       });
     });
   }
