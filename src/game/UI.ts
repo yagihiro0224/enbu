@@ -288,6 +288,10 @@ const CSS = `
 #rank-title { font-size: 20px; font-weight: 900; letter-spacing: 0.3em; color: #ffe0a0; margin-bottom: 10px; }
 /* リザルトの中に出す短いランキング */
 #res-rankbox { margin-top: 12px; }
+/* 負けたときの断り書き */
+.rank-lose { padding: 8px 10px; border-radius: 8px; font-size: 12px; line-height: 1.5;
+  color: rgba(255,220,200,0.8); background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.12); }
 #res-rankbox .rank-row { font-size: 12px; }
 
 /* タイトルやリザルトのオーバーレイに隠れないよう手前に出す
@@ -698,6 +702,10 @@ export class UI {
   hideTitleNow() { this.title.style.display = 'none'; }
   showResult(win: boolean, score: ScoreResult, char: CharId, seconds: number, maxCombo: number) {
     this.setRecordNote('none');
+    // 負けたときは順位表の代わりに断り書きを出す。勝てば submitScore が表で上書きする
+    this.resRankBox.innerHTML = win
+      ? ''
+      : '<div class="rank-lose">クリアしていないので、この記録はランキングに登録されません。</div>';
     this.resultTitle.textContent = win ? '浄 化 完 了' : '散 華';
     this.result.classList.toggle('win', win);
     this.result.classList.toggle('lose', !win);
