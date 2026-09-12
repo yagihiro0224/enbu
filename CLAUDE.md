@@ -527,7 +527,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
      抱える側は原点、抱えられる側は `position (0, 1.06, 0.08)` / `rotation.x = π/2` で横倒し（頭が +Z ＝ 進行方向）。
      **離して置くと浮いて見える**ので、抱える手のすぐ先に置くこと
   2. 操作キャラの体はこの Group に入るため、`player.group.visible = false` にして `player.update` を飛ばす
-  3. 着弾で `SUP_DAMAGE` 240（体力 800 の 3 割）と `stagger(3.2)`。閃光・光柱・輪・火花・`sfx.superHit()`
+  3. 着弾で `SUP_DAMAGE` 240（体力 800 の 3 割）と `stagger(3.2)`。閃光・光柱・輪・火花・`sfx.superHit()`。
+     さらに 0.14 秒後と 0.32 秒後に追い討ちの輪と火花（`burst2` / `burst3`）
+  - 見せ場は `hitstop(SUP_CUTIN*0.95, 0.55)` でゆっくり流し、着弾は `hitstop(0.8, 0.15)`（2026-09-12 ユーザー要望）
+  - **スロー中は Fx も同じ倍率で遅くなる**（`fx.update(dt)` は scale 済みの dt）。
+    閃光を大きく長くすると画面が真っ白のまま数秒残るので、**閃光は短く小さく**（0.13〜0.18 秒）して火花で見せること
   4. `endSuper()` で rig を元の入れ物へ戻し、立ち位置を突っ込んだ先へ移して操作を返す
 - カメラは二人の中間を見る専用の分岐。**注視点を進行方向へ 0.9m ずらさないと抱えられた側が画面から切れる**
 - カットインは `UI.setCutin()`。`white-space: pre-line` なので `
