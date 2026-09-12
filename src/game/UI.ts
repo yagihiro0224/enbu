@@ -29,10 +29,6 @@ const CSS = `
 /* 必殺技のカットイン */
 #cutin { position: absolute; inset: 0; display: none; align-items: flex-end; justify-content: center; padding-bottom: 18vh; pointer-events: none; }
 #cutin.on { display: flex; }
-#cutin .bg { position: absolute; inset: 0;
-  background: repeating-linear-gradient(100deg, rgba(255,255,255,0.16) 0 3px, rgba(255,255,255,0) 3px 22px);
-  animation: cutlines 0.5s linear infinite; opacity: 0.85; }
-@keyframes cutlines { to { transform: translateX(-25px); } }
 #cutin .txt { position: relative; font-size: clamp(22px, 6.4vw, 58px); font-weight: 900; letter-spacing: 0.04em;
   text-align: center; line-height: 1.12; color: #fff; white-space: pre-line;
   background: linear-gradient(180deg, #fff6d0, #ffc247 55%, #ff7a2a);
@@ -368,7 +364,7 @@ export class UI {
       <div id="php-wrap"><div class="name">深川まひろ</div><div class="bar" id="php"><b></b><i></i></div></div>
       <div id="bhp-wrap"><div class="name">妖魔 ─ 紫苑</div><div class="bar" id="bhp"><b></b><i></i><span class="ph" style="left:60%"></span><span class="ph" style="left:30%"></span></div></div>
       <div id="sp-wrap"><span class="l">必殺</span><span class="bar" id="sp"><i></i></span></div>
-      <div id="cutin"><div class="bg"></div><div class="txt"></div></div>
+      <div id="cutin"><div class="txt"></div></div>
       <div id="combo"><div class="n">0</div><div class="l">COMBO</div></div>
       <div id="banner"></div>
       <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・U 必殺・Q 交代</div>
