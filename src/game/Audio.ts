@@ -235,19 +235,19 @@ export class Sfx {
   }
 
   /**
-   * スコア画面にいる間、声を間を置きながら鳴らし続ける。
+   * スコア画面で声を鳴らす。既定では無作為に 2 本まで。
    * 画面を離れるときは stopVoiceLoop() を呼ぶこと
    */
-  startVoiceLoop(firstDelay = 0.9, gap = 1.1) {
+  startVoiceLoop(firstDelay = 0.9, count = 2, gap = 1.1) {
     const gen = ++this.voiceGen;
-    const step = async (delay: number) => {
-      if (gen !== this.voiceGen) return;
+    const step = async (delay: number, left: number) => {
+      if (gen !== this.voiceGen || left <= 0) return;
       const dur = await this.playVoice(delay);
       if (gen !== this.voiceGen) return;
-      if (dur <= 0) return; // 声が無い、または鳴らせない
-      this.voiceTimer = window.setTimeout(() => step(0), (dur + gap) * 1000);
+      if (dur <= 0 || left <= 1) return; // 声が無い、または最後の 1 本だった
+      this.voiceTimer = window.setTimeout(() => step(0, left - 1), (dur + gap) * 1000);
     };
-    void step(firstDelay);
+    void step(firstDelay, count);
   }
 
   /** 声を止める。鳴っている途中なら短く絞って切る */

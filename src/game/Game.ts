@@ -41,34 +41,6 @@ function castShadows(root: THREE.Object3D) {
   });
 }
 
-/**
- * 文字をクリップボードへ写す。
- * navigator.clipboard が使えない場面（http のページなど）では、
- * 画面外の入力欄を使う昔ながらの方法に落とす。
- */
-async function copyText(text: string): Promise<boolean> {
-  try {
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(text);
-      return true;
-    }
-  } catch {
-    // 下の方法を試す
-  }
-  try {
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    ta.setAttribute('readonly', '');
-    ta.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0';
-    document.body.appendChild(ta);
-    ta.select();
-    const ok = document.execCommand('copy');
-    ta.remove();
-    return ok;
-  } catch {
-    return false;
-  }
-}
 
 export class Game {
   private renderer: THREE.WebGLRenderer;
@@ -183,8 +155,6 @@ export class Game {
     this.ui.setName(this.ranking.name);
     this.ui.onName = (v) => { this.ranking.name = v; };
     this.ui.onRankOpen = () => void this.openRanking();
-    this.ui.onShareX = () => this.shareToX();
-    this.ui.onShareCopy = () => void this.shareCopy();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
@@ -606,26 +576,7 @@ export class Game {
     return location.origin + location.pathname;
   }
 
-  /**
-   * X の投稿画面を開く。
-   * **端末の共有画面はリンクだけを渡す先が多く、点数が消える**ので使わない
-   * （パソコンから共有すると X にリンクしか入らない、という指摘への対応）。
-   */
-  private shareToX() {
-    const url = `https://x.com/intent/post?text=${encodeURIComponent(this.shareText())}&url=${encodeURIComponent(this.shareUrl())}`;
-    const w = window.open(url, '_blank', 'noopener,noreferrer');
-    if (!w) {
-      // 新しいタブが開けなかったときは、せめて手元に残す
-      void this.shareCopy();
-    }
-  }
 
-  /** 文面とリンクをまとめてクリップボードへ写す */
-  private async shareCopy() {
-    const body = `${this.shareText()}\n${this.shareUrl()}`;
-    if (await copyText(body)) this.ui.showBanner('結果をコピーしました', '#ffd6a0', 1.4);
-    else this.ui.showBanner('コピーできませんでした', '#ffa0a0', 1.4);
-  }
 
 
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */
