@@ -465,6 +465,10 @@ export class Game {
   private sup: {
     t: number;
     hit: boolean;
+    /** 着弾した時刻。追い討ちの間合いを測る */
+    hitAt: number;
+    burst2: boolean;
+    burst3: boolean;
     group: THREE.Group;
     carrier: Rig;   // ちさと
     rammer: Rig;    // まひろ
@@ -655,12 +659,14 @@ export class Game {
     this.player.group.visible = false;
 
     this.sup = {
-      t: 0, hit: false, group, carrier, rammer,
+      t: 0, hit: false, hitAt: 0, burst2: false, burst3: false, group, carrier, rammer,
       carrierAnim: new Animator(carrier), rammerAnim: new Animator(rammer),
       from, to: stop, dir, yaw,
     };
     this.ui.setCutin('スーパー！\nまひろ頭突き！');
     this.ui.setSwapVisible(false);
+    // 見せ場はゆっくり流す
+    this.ctx.hitstop(SUP_CUTIN * 0.95, 0.55);
     this.sfx.superCall();
     this.setMusicLv(2);
     group.updateMatrixWorld(true);
@@ -703,23 +709,51 @@ export class Game {
     // 着弾
     if (!sp.hit && k >= 1) {
       sp.hit = true;
+      sp.hitAt = t;
       this.ui.setCutin('');
       const c = this.boss.center.clone();
+      const p = this.boss.pos;
       this.sfx.superHit();
-      this.ctx.shake(2.4);
-      this.ctx.hitstop(0.5, 0.12);
-      this.ctx.punch(1.6);
-      this.fx.flash(c, 0xfff0c0, 6.5, 0.45);
-      this.fx.ring(this.boss.pos, 0xffc247, 12, 0.8);
-      this.fx.pillar(this.boss.pos, 0xff8a3a, 14, 1.8, 0.8);
-      this.fx.impact(c, 0xffd070, 5.5);
-      this.particles.emit(c, { color: 0xffd070, count: 90, speed: 16, size: 0.4, life: 0.9 });
-      this.ui.flash(0.5);
+      // 止めて、揺らして、寄る
+      this.ctx.shake(3.4);
+      this.ctx.hitstop(0.8, 0.15);
+      this.ctx.punch(2.2);
+      // 光を重ねる
+      this.fx.flash(c, 0xffffff, 5.5, 0.16);
+      this.fx.flash(c, 0xffd070, 4.2, 0.13);
+      this.fx.impact(c, 0xfff0c0, 6);
+      this.fx.impact(c, 0xff8a3a, 4.6, true);
+      this.fx.pillar(p, 0xff8a3a, 17, 2.2, 0.5);
+      this.fx.pillar(p, 0xfff0c0, 11, 0.9, 0.34);
+      this.fx.ring(p, 0xffc247, 9, 0.5);
+      this.fx.ring(p, 0xfff0c0, 18, 1.1);
+      this.particles.emit(c, { color: 0xffd070, count: 110, speed: 19, size: 0.42, life: 1.0 });
+      this.particles.emit(c, { color: 0xff6a3a, count: 70, speed: 10, size: 0.3, life: 1.3 });
+      this.ui.flash(0.55);
       this.ui.showBanner('頭突き！', '#ffe08a', 1.4);
       // 必ず当たる。大きく削って無防備にする
       this.boss.takeDamage(SUP_DAMAGE, 0, this.ctx);
       if (this.boss.alive) this.boss.stagger(SUP_STAGGER, this.ctx);
       console.info('super: 着弾');
+    }
+
+    // 着弾のあと、間を置いて追い討ちの輪と火花。一発で終わらせず余韻を作る
+    if (sp.hit) {
+      const since = t - sp.hitAt;
+      const c = this.boss.center;
+      if (!sp.burst2 && since > 0.14) {
+        sp.burst2 = true;
+        this.fx.ring(this.boss.pos, 0xff8a3a, 14, 0.7);
+        this.fx.impact(c, 0xffc247, 5.5);
+        this.particles.emit(c, { color: 0xffe0a0, count: 60, speed: 13, size: 0.34, life: 0.8 });
+        this.ctx.shake(1.6);
+      }
+      if (!sp.burst3 && since > 0.32) {
+        sp.burst3 = true;
+        this.fx.ring(this.boss.pos, 0xfff0c0, 22, 1.2);
+        this.fx.flash(c, 0xffb060, 3.6, 0.14);
+        this.particles.emit(c, { color: 0xff9a50, count: 45, speed: 7, size: 0.26, life: 1.4 });
+      }
     }
 
     if (t >= SUP_CUTIN + SUP_DASH + SUP_AFTER) this.endSuper();

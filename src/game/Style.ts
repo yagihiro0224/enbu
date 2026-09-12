@@ -58,7 +58,8 @@ const CHISATO: FightStyle = {
     2: { total: 0.32, a0: 0.11, a1: 0.17, chain: 0.19, dmg: 8, poise: 10, lunge: 6.0, reach: 2.0, kind: 'punch', trail: 'fistR' },
     3: { total: 0.32, a0: 0.11, a1: 0.17, chain: 0.19, dmg: 8, poise: 10, lunge: 6.0, reach: 2.0, kind: 'punch', trail: 'fistR' },
     4: { total: 0.4, a0: 0.15, a1: 0.23, chain: 0.26, dmg: 11, poise: 16, lunge: 5.0, reach: 2.3, kind: 'kick', trail: 'leg' },
-    5: { total: 0.62, a0: 0.28, a1: 0.42, chain: 0.62, dmg: 22, poise: 36, lunge: 9.0, reach: 2.6, kind: 'spin', trail: 'fistR' },
+    // 5 段目はその場で跳んで回る。前へ出ると敵を通り過ぎて当たらない（lunge 0）
+    5: { total: 0.62, a0: 0.28, a1: 0.42, chain: 0.62, dmg: 22, poise: 36, lunge: 0, reach: 2.6, kind: 'spin', trail: 'fistR' },
   },
   pose: poseAttackChisato,
   color: 0xa040ff, hot: 0xd090ff, spark: 0xe8c0ff,
