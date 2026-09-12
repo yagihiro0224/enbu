@@ -333,6 +333,11 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?shot で射を 1 発撃たせ、?sf=コマ数 だけ進めて止める
+        if (q.has('shot')) {
+          this.player.debugShoot(this.ctx);
+          for (let i = 0; i < Number(q.get('sf') ?? 4); i++) this.step(1 / 60);
+        }
         // ?bphase=2|3 で進化後の見た目を確かめる
         if (q.has('bphase')) {
           this.boss.forcePhase(Math.max(2, Math.min(3, Number(q.get('bphase')) || 2)), this.ctx);

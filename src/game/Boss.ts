@@ -9,9 +9,16 @@ import type { Fx } from './Fx';
 type BState = 'idle' | 'cast' | 'charge' | 'lunge' | 'stagger' | 'phase' | 'dead';
 /**
  * 敵の弾の密度。1.0 で元の弾幕そのまま。
- * 2026-09-11 にユーザー指示で 1/10 にし、同日の難易度上げで倍の 0.2 にした
+ * 2026-09-11 にユーザー指示で 1/10 にし、同日の難易度上げで 0.2、
+ * 2026-09-12 にさらに 1.2 倍して 0.24
  */
-const BULLET_DENSITY = 0.2;
+
+/**
+ * 敵の弾の速さの倍率。パリィを難しくするため 2026-09-12 に 1.5 倍にした。
+ * 上げすぎると避けきれなくなるので、変えたら実際に遊んで確かめること
+ */
+const BULLET_SPEED_MUL = 1.5;
+const BULLET_DENSITY = 0.24;
 
 /**
  * 敵の体力。スコアの配点とコンボ倍率はこの値を前提に調整してある。
@@ -229,7 +236,7 @@ export class Boss {
     if (this.fireAcc < 1) return null;
     this.fireAcc -= 1;
     return ctx.bullets.spawn({
-      pos: from, vel: dir.clone().normalize().multiplyScalar(speed * this.speedMul), owner: 'boss',
+      pos: from, vel: dir.clone().normalize().multiplyScalar(speed * this.speedMul * BULLET_SPEED_MUL), owner: 'boss',
       kind: o.kind ?? 0, r: o.r ?? 0.3, color: o.color ?? 0xff5fb0, damage: (o.damage ?? 10) * this.powerMul, life: o.life ?? 8,
       homing: o.homing, gravity: o.gravity, bounce: o.bounce,
     });

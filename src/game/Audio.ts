@@ -1,10 +1,26 @@
-/** 依存なしの合成効果音。初回タップで unlock() を呼ぶ */
+/**
+ * 音声ファイルの効果音。`public/audio/sfx/` に置く。
+ * 読み込めなければ、それぞれ合成音に落ちる。
+ */
+const SAMPLES: Record<string, string> = {
+  shoot: 'shoot.mp3',
+  bossShoot1: 'boss_shot1.mp3',
+  bossShoot2: 'boss_shot2.mp3',
+};
+
+/** 合成と音声ファイルを混ぜた効果音。初回タップで unlock() を呼ぶ */
 export class Sfx {
   private ctx: BaseAudioContext | null = null;
   private master: GainNode | null = null;
   private noiseBuf: AudioBuffer | null = null;
   /** 残響への送り。打撃に厚みと余韻を足す */
   private revIn: GainNode | null = null;
+  /** 読み込んだ音声ファイル */
+  private samples = new Map<string, AudioBuffer>();
+  private lastSample = new Map<string, number>();
+  private loadingSamples = false;
+  /** 敵の発射音を交互に切り替える */
+  private bossShotFlip = false;
   /** 歪みの曲線。打撃の芯を潰して太くする */
   private curve: Float32Array<ArrayBuffer> | null = null;
   muted = false;
@@ -20,6 +36,7 @@ export class Sfx {
       const ctx = new AC();
       this.setup(ctx, ctx.destination);
       void ctx.resume();
+      this.loadSamples();
     } catch {
       this.ctx = null;
     }
@@ -69,6 +86,59 @@ export class Sfx {
       curve[i] = Math.tanh(x * 2.6);
     }
     this.curve = curve;
+  }
+
+  /**
+   * 音声ファイルの効果音を裏で読み込む。
+   * 読めるまでは合成音を鳴らすので、待たずに呼んでよい。
+   */
+  private loadSamples() {
+    if (!this.ctx || this.loadingSamples) return;
+    this.loadingSamples = true;
+    const base = `${import.meta.env.BASE_URL}audio/sfx/`;
+    for (const [name, file] of Object.entries(SAMPLES)) {
+      void (async () => {
+        try {
+          const res = await fetch(base + file);
+          if (!res.ok) return;
+          const buf = await this.ctx!.decodeAudioData(await res.arrayBuffer());
+          this.samples.set(name, buf);
+        } catch {
+          // 読めなければ合成音のまま
+        }
+      })();
+    }
+  }
+
+  /**
+   * 音声ファイルの効果音を鳴らす。読み込めていなければ false を返す。
+   * gap を指定すると、その秒数の間は鳴らし直さない（弾幕で音が重なって潰れるのを防ぐ）。
+   * cut を指定すると、その秒数で消えるように尾を切る。
+   */
+  playSample(name: string, o: { gain?: number; rate?: number; gap?: number; cut?: number } = {}) {
+    const buf = this.samples.get(name);
+    if (!buf || !this.ctx || !this.master || this.muted) return false;
+    const t = this.ctx.currentTime;
+    if (o.gap) {
+      const last = this.lastSample.get(name) ?? -999;
+      if (t - last < o.gap) return true; // 鳴らしたことにして重ねない
+      this.lastSample.set(name, t);
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = o.rate ?? 1;
+    const g = this.ctx.createGain();
+    const peak = o.gain ?? 0.7;
+    g.gain.setValueAtTime(peak, t);
+    const dur = o.cut ?? buf.duration;
+    if (o.cut && o.cut < buf.duration) {
+      g.gain.setValueAtTime(peak, t + o.cut * 0.7);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + o.cut);
+    }
+    src.connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + dur + 0.05);
+    return true;
   }
 
   /** 指定のノードを残響へ送る */
@@ -331,6 +401,8 @@ export class Sfx {
     this.noise(0.22, { gain: 0.25, freq: 600, end: 2500, q: 0.7 });
   }
   shoot() {
+    // 音声ファイルがあればそれを使う。尾は短く切って連射で潰れないようにする
+    if (this.playSample('shoot', { gain: 0.55, cut: 0.85 })) return;
     this.tone(900, 0.12, { type: 'square', gain: 0.12, end: 300 });
     this.noise(0.08, { gain: 0.12, freq: 4000, end: 1000 });
   }
@@ -338,15 +410,18 @@ export class Sfx {
     this.tone(300, 0.25, { type: 'sawtooth', gain: 0.25, end: 80 });
     this.noise(0.2, { gain: 0.3, freq: 500, type: 'lowpass' });
   }
-  /** 敵の発射: 上がる音は跳ねて聞こえるので、低く落ちる音で重さを出す */
+  /** 敵の発射。2 種類の音声ファイルを交互に鳴らす */
   bossShoot() {
+    this.bossShotFlip = !this.bossShotFlip;
+    const name = this.bossShotFlip ? 'bossShoot1' : 'bossShoot2';
+    // 弾幕では発射が続くので、間隔を空けて重ならないようにする
+    if (this.playSample(name, { gain: 0.4, gap: 0.14, cut: 0.7 })) return;
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
     const o = this.osc('sine', 200, t, 0.15);
     o.frequency.exponentialRampToValueAtTime(68, t + 0.11);
     const g = this.envNode(o, t, 0.15, 0.2, 0.002);
     this.send(g, 0.16);
-    // 押し出される空気
     const n = this.noiseSrc(t, 0.06);
     const lp = this.ctx.createBiquadFilter();
     lp.type = 'lowpass';

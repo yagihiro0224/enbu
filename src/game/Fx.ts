@@ -83,6 +83,9 @@ export class Trail {
 }
 
 /** 短命な演出（斬撃の三日月、衝撃波、閃光、魔法陣） */
+/** 筒の geometry は +Y に伸びるので、向きを合わせるときの基準にする */
+const UP = new THREE.Vector3(0, 1, 0);
+
 export class Fx {
   readonly group = new THREE.Group();
   readonly playerTrail = new Trail(0xff7a2a);
@@ -276,6 +279,35 @@ export class Fx {
     this.add(seg, dur, (_o, t) => {
       if (++frame % 3 === 0) build(); // 瞬き
       mat.opacity = (1 - t) * (0.7 + Math.random() * 0.3);
+    });
+  }
+
+  /**
+   * 撃った軌跡の光線。**板ではなく筒なので、どの角度から見ても消えない**
+   * （板で作ると横から見たとき厚みがゼロになって見えなくなる）。
+   */
+  beam(from: THREE.Vector3, dir: THREE.Vector3, color: THREE.ColorRepresentation, len = 6, dur = 0.14) {
+    const geo = new THREE.CylinderGeometry(0.14, 0.05, len, 10, 1, true);
+    geo.translate(0, len / 2, 0); // 根元を原点に
+    const mat = new THREE.MeshBasicMaterial({
+      color: this.hdr(color, 2.6), toneMapped: false, transparent: true, opacity: 0.9,
+      depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    });
+    const m = new THREE.Mesh(geo, mat);
+    m.position.copy(from);
+    m.quaternion.setFromUnitVectors(UP, dir.clone().normalize());
+    // 中の白い芯
+    const cgeo = new THREE.CylinderGeometry(0.05, 0.016, len * 0.96, 8, 1, true);
+    cgeo.translate(0, len * 0.48, 0);
+    const cmat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(2.6, 2.4, 2.2), toneMapped: false, transparent: true,
+      depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending,
+    });
+    m.add(new THREE.Mesh(cgeo, cmat));
+    this.add(m, dur, (obj, t) => {
+      obj.scale.set(1 - t * 0.75, 1, 1 - t * 0.75);
+      mat.opacity = 1 - t;
+      cmat.opacity = Math.max(0, 1 - t * 1.6);
     });
   }
 

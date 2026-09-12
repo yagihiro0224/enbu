@@ -13,8 +13,8 @@ const DODGE_DUR = 0.34;
 const PARRY_WINDOW = 0.24;
 const PARRY_DUR = 0.38;
 
-/** 敵から受けるダメージの倍率。難易度調整（2026-09-11 に 1.0 → 1.2） */
-const ENEMY_DMG_MUL = 1.2;
+/** 敵から受けるダメージの倍率。難易度調整（2026-09-11 に 1.0 → 1.2、2026-09-12 にさらに 1.3 倍して 1.56） */
+const ENEMY_DMG_MUL = 1.56;
 
 export class Player {
   readonly group = new THREE.Group();
@@ -396,6 +396,15 @@ export class Player {
     const input = ctx.input;
     if (this.shootCd > 0) return;
     if (!(input.consume('shoot') || input.isHeld('shoot'))) return;
+    this.doShoot(ctx);
+  }
+
+  /** 検証用に 1 発撃たせる（?shot） */
+  debugShoot(ctx: Ctx) {
+    this.doShoot(ctx);
+  }
+
+  private doShoot(ctx: Ctx) {
     const boss = ctx.boss;
     if (!boss.alive) return;
     const dx = boss.pos.x - this.pos.x, dz = boss.pos.z - this.pos.z;
@@ -405,9 +414,22 @@ export class Player {
     const hand = this.center.clone().add(new THREE.Vector3(Math.cos(this.heading) * 0.35, 0.1, -Math.sin(this.heading) * 0.35)).addScaledVector(fwd, 0.4);
     const target = boss.center.clone();
     const dir = target.sub(hand).normalize();
-    ctx.bullets.spawn({ pos: hand, vel: dir.multiplyScalar(24), owner: 'player', kind: 2, r: 0.26, damage: 4, life: 1.5, color: 0xffa040 });
-    ctx.particles.emit(hand, { color: 0xffc080, count: 6, speed: 2, size: 0.14, life: 0.25 });
-    ctx.fx.flash(hand, 0xffa040, 0.9, 0.1);
+    const st = this.style;
+    // 弾はスタイルの色で、細く速く
+    ctx.bullets.spawn({ pos: hand, vel: dir.clone().multiplyScalar(34), owner: 'player', kind: 2, r: 0.22, damage: 4, life: 1.2, color: st.hot });
+    // 銃口の光と、前へ吹く火花
+    ctx.fx.flash(hand, st.hot, 2.2, 0.16);
+    ctx.fx.flash(hand, 0xffffff, 0.7, 0.08);
+    ctx.particles.emit(hand, { color: st.spark, count: 10, speed: 5, size: 0.13, life: 0.22 });
+    // 撃った軌跡。敵までの距離ぶん伸ばす
+    const reach = Math.min(14, Math.max(3, hand.distanceTo(boss.center)));
+    ctx.fx.beam(hand, dir, st.hot, reach, 0.2);
+    // 足元に広がる反動の輪
+    ctx.fx.ring(this.pos, st.color, 1.4, 0.22);
+    // 反動
+    this.vel.addScaledVector(fwd, -1.6);
+    ctx.punch(0.12 * st.punch);
+    ctx.shake(0.12 * st.shake);
     this.shootCd = 0.28;
     this.shootPose = 0.3;
     ctx.sfx.shoot();
