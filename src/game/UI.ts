@@ -207,6 +207,17 @@ const CSS = `
 }
 #help { position: absolute; left: 50%; bottom: max(10px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-size: 11px; color: rgba(255,255,255,0.6);
   letter-spacing: 0.1em; text-shadow: 0 1px 3px #000; white-space: nowrap; }
+/* 自己ベスト更新などの知らせ */
+#res-new { display: flex; align-items: baseline; justify-content: center; gap: 10px; margin: 6px 0 2px;
+  font-weight: 900; letter-spacing: 0.12em; animation: newrec 1.1s ease-in-out infinite; }
+#res-new.hidden { display: none; }
+#res-new b { font-size: 21px; background: linear-gradient(90deg, #ffe98a, #ffb347, #fff2c0, #ffb347);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(255,190,90,0.8)); }
+#res-new small { font-size: 11px; font-weight: 700; color: #ffd6a0; letter-spacing: 0.08em; }
+#res-new.top b { background: linear-gradient(90deg, #fff0a0, #ff7ad9, #8ad4ff, #fff0a0); }
+@keyframes newrec { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
 /* 名前の入力（タイトル） */
 #nameRow { display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
 #nameRow.hidden { display: none; }
@@ -351,6 +362,7 @@ export class UI {
             <div id="res-lines"></div>
           </div>
           <div id="res-total"><span>TOTAL SCORE</span><b id="res-total-n">0</b></div>
+          <div id="res-new" class="hidden"><b></b><small></small></div>
           <div id="res-stats"></div>
           <div id="res-rankbox"></div>
           <div class="btnrow">
@@ -382,6 +394,7 @@ export class UI {
     this.resRankSub = q('#res-rank .rk-sub');
     this.resLines = q('#res-lines');
     this.resTotal = q('#res-total-n');
+    this.resNew = q('#res-new');
     this.resCap = q('#res-cap');
     this.resImg = q('#res-img') as HTMLImageElement;
     this.resImg.addEventListener('error', () => this.resCap.classList.add('noimg'));
@@ -453,6 +466,22 @@ export class UI {
   private rankList!: HTMLElement;
   private rankNote!: HTMLElement;
   private resRankBox!: HTMLElement;
+  private resNew!: HTMLElement;
+
+  /**
+   * 記録の知らせ。
+   * 'first' はじめての記録、'record' 自己ベスト更新、'top' みんなの 1 位、'none' 何も出さない
+   */
+  setRecordNote(kind: 'none' | 'first' | 'record' | 'top', gain = 0) {
+    if (!this.resNew) return;
+    this.resNew.classList.toggle('hidden', kind === 'none');
+    this.resNew.classList.toggle('top', kind === 'top');
+    if (kind === 'none') return;
+    const label = kind === 'top' ? 'WORLD 1st' : 'NEW RECORD';
+    const sub = kind === 'top' ? 'みんなの 1 位' : kind === 'first' ? 'はじめての記録' : `自己ベスト +${gain.toLocaleString()}`;
+    (this.resNew.querySelector('b') as HTMLElement).textContent = label;
+    (this.resNew.querySelector('small') as HTMLElement).textContent = sub;
+  }
   /** 名前が打ち替えられたとき */
   onName: (v: string) => void = () => {};
   /** タイトルの「ランキング」 */
@@ -586,6 +615,7 @@ export class UI {
   /** 動作確認用: フェードなしで即座に消す */
   hideTitleNow() { this.title.style.display = 'none'; }
   showResult(win: boolean, score: ScoreResult, char: CharId, seconds: number, maxCombo: number) {
+    this.setRecordNote('none');
     this.resultTitle.textContent = win ? '浄 化 完 了' : '散 華';
     this.result.classList.toggle('win', win);
     this.result.classList.toggle('lose', !win);

@@ -111,6 +111,15 @@ export class Ranking {
     }
   }
 
+  /**
+   * その名前のこれまでの最高点。記録がなければ 0。
+   * 名前は打ち替えられるので、端末内の記録から同じ名前だけを見る
+   */
+  bestOf(name: string) {
+    const n = cleanName(name);
+    return this.local().reduce((m, e) => (e.name === n ? Math.max(m, e.score) : m), 0);
+  }
+
   /** 端末内に記録して、何位だったかを返す（1 始まり） */
   addLocal(e: Entry) {
     const list = this.local();

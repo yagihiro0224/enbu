@@ -416,3 +416,17 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
     太さは半径 0.14、中に白い芯。検証は `?shot&sf=コマ数&cam=side2`
 - 難易度（ユーザー指示）: 弾速 **1.5 倍**（`BULLET_SPEED_MUL`、パリィを難しくする）、
   弾数 **1.2 倍**（`BULLET_DENSITY` 0.2 → 0.24）、攻撃力 **1.3 倍**（`ENEMY_DMG_MUL` 1.2 → 1.56）
+
+## 自己ベスト更新の表示（2026-09-12）
+
+- クリア時、同じ名前のこれまでの最高点を `Ranking.bestOf(name)` で見て知らせを出す。
+  **記録する前に見ること**（addLocal のあとでは自分の記録が混ざる）
+  - 初記録は「NEW RECORD / はじめての記録」、更新は「NEW RECORD / 自己ベスト +差分」、
+    みんなの 1 位なら「WORLD 1st / みんなの 1 位」（配色が変わる）
+- **`showResult()` はリザルトの中身を作り直すので、知らせを出すのはその後**。
+  Game が `recordNote` に覚えておき、showResult の直後に `ui.setRecordNote()` を呼ぶ。
+  先に呼ぶと消える（最初これで出なかった）
+- 自己ベストは端末内の記録（localStorage）から見る。名前を変えれば別人扱いになる
+- 検証: `--user-data-dir` を同じにしてヘッドレスを 2 回走らせる。
+  `?t=1&win=20&sec=95` → `?t=1&win=42&sec=52` の順で「はじめての記録」「自己ベスト +17,550,000」、
+  そのあと低い点なら何も出ないことを確認済み

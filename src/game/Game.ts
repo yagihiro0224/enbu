@@ -88,6 +88,11 @@ export class Game {
   private ranking = new Ranking();
   /** 直前に記録したスコア。リザルトで自分の行を強調するのに使う */
   private myEntry: Entry | null = null;
+  /**
+   * 記録の知らせ。**showResult がリザルトを作り直すので、出すのはその後**。
+   * 先に UI へ渡すと消えてしまう
+   */
+  private recordNote: { kind: 'none' | 'first' | 'record' | 'top'; gain: number } = { kind: 'none', gain: 0 };
   /** 置かれている mp3 を調べる非同期処理。起動は止めない */
   private bgmProbe: Promise<string[] | null> = findBgmFiles();
   private musicPending = false;
@@ -520,11 +525,19 @@ export class Game {
       combo: this.player.maxCombo,
       at: Date.now(),
     };
+    // 記録する前に、同じ名前のこれまでの最高点を見ておく
+    const prev = this.ranking.bestOf(entry.name);
     this.myEntry = entry;
     this.ranking.addLocal(entry);
+    if (prev === 0) this.setRecordNote('first');
+    else if (entry.score > prev) this.setRecordNote('record', entry.score - prev);
+
     // みんなのランキングが使えるなら送る。失敗したら端末内の記録を出す
     const shared = await this.ranking.submitShared(entry);
-    this.ui.setResultRanking(shared ?? this.ranking.local(), entry.at);
+    const list = shared ?? this.ranking.local();
+    this.ui.setResultRanking(list, entry.at);
+    // みんなの 1 位はそれより上の知らせ
+    if (shared && shared[0]?.at === entry.at) this.setRecordNote('top');
   }
 
   /** ランキング画面を開く */
@@ -552,6 +565,12 @@ export class Game {
     return e
       ? `炎舞 -ENBU- で ${e.score.toLocaleString()} 点（${e.rank}）を出した。${e.char}／${e.seconds.toFixed(1)}秒 #炎舞ENBU`
       : '炎舞 -ENBU- で遊んでみて #炎舞ENBU';
+  }
+
+  /** 記録の知らせを覚える。リザルトが出ていればすぐ反映する */
+  private setRecordNote(kind: 'none' | 'first' | 'record' | 'top', gain = 0) {
+    this.recordNote = { kind, gain };
+    if (this.state === 'over') this.ui.setRecordNote(kind, gain);
   }
 
   /** 共有に使うリンク */
@@ -661,6 +680,7 @@ export class Game {
 
   private finish(win: boolean) {
     if (this.state !== 'play') return;
+    this.recordNote = { kind: 'none', gain: 0 };
     this.state = 'over';
     this.overWin = win;
     this.overTimer = 0;
@@ -761,7 +781,10 @@ export class Game {
     if (this.state === 'over') {
       this.overTimer += real;
       if (this.overTimer > 2.8 && this.overTimer - real <= 2.8) {
-        if (this.score) this.ui.showResult(this.overWin, this.score, this.current, this.playTime, this.player.maxCombo);
+        if (this.score) {
+          this.ui.showResult(this.overWin, this.score, this.current, this.playTime, this.player.maxCombo);
+          this.ui.setRecordNote(this.recordNote.kind, this.recordNote.gain);
+        }
       }
     }
 
