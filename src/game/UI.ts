@@ -279,7 +279,10 @@ const CSS = `
 .rank-row.top2 .no { color: #dfe6ff; }
 .rank-row.top3 .no { color: #ffc08a; }
 .rank-empty { font-size: 12px; color: rgba(255,255,255,0.5); padding: 10px; }
-#rank-panel { width: min(92vw, 620px); height: auto; max-height: 84vh; overflow-y: auto; align-items: stretch; }
+/* **中央寄せの箱がはみ出すと上端に手が届かなくなる**ので、
+   スクロールはかぶせ側で受け、箱は margin: auto で真ん中に置く */
+#rankboard { justify-content: flex-start; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 0; }
+#rank-panel { width: min(92vw, 620px); height: auto; overflow: visible; align-items: stretch; margin: auto; }
 #rank-note { font-size: 11px; color: rgba(255,255,255,0.55); margin: 8px 0 2px; letter-spacing: 0.05em; }
 #rank-title { font-size: 20px; font-weight: 900; letter-spacing: 0.3em; color: #ffe0a0; margin-bottom: 10px; }
 /* リザルトの中に出す短いランキング */
@@ -294,6 +297,10 @@ const CSS = `
    （以前はタイトル中に ♪ を押せなかった） */
 /* 横画面など高さの足りない画面。**そのままだと「ゲーム開始」が画面の外へ出る** */
 @media (max-height: 560px) {
+  .rank-row { padding: 3px 8px; font-size: 12px; }
+  .rank-row .nm small { font-size: 8px; }
+  #rank-title { font-size: 16px; margin-bottom: 6px; }
+  #rank-panel { padding: 10px 14px 12px; }
   #title { justify-content: flex-start; padding: 10px 0 14px; overflow-y: auto; }
   .overlay h1 { font-size: clamp(24px, 5.2vh, 44px); letter-spacing: 0.18em; }
   .overlay h1 small { font-size: 0.26em; letter-spacing: 0.4em; margin-top: 2px; }

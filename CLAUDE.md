@@ -587,3 +587,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 対処: 高さで 2 段階に詰める。`max-height: 560px` で説明文を隠して全体を縮め、
   `max-height: 430px` でさらに詰める（英字の副題やヒントも消す）。`#title` は `overflow-y: auto` で最後の逃げ道
 - 検証: ヘッドレスの `--window-size=860,400` と `700,300` で「ゲーム開始」が見えることを確認する
+
+## 横画面でランキングが上まで見られない（2026-09-12 修正）
+
+- 症状: スマホを横にしてランキングを開くと、1 位が画面の上に隠れてスクロールしても出てこない
+- 原因: **中央寄せ（`justify-content: center`）の箱が親より高くなると、はみ出した上側に手が届かなくなる**。
+  flex の中央寄せでよくある落とし穴
+- 対処: スクロールはかぶせ（`#rankboard`）で受け、`justify-content: flex-start` にして、
+  箱側は `margin: auto` で真ん中に置く。これなら収まるときは中央、あふれるときは上から読める
+- 併せて `max-height: 560px` では行の高さと見出しを詰めた
+- 検証: ヘッドレスの `--window-size=860,400` で `?rankdemo` を開き、1 位が見えることを確認する
