@@ -17,6 +17,44 @@
  */
 const RANK_ENDPOINT = 'https://enbu-rank.yagi-hiro-0224.workers.dev/';
 
+/**
+ * 誰でも名乗れると困る名前。含まれていたら弾く。
+ * **解錠した端末だけ使える**（下の ADMIN_KEY を URL に付けて一度開く）
+ */
+const RESERVED = ['管理者'];
+/**
+ * 管理者を解錠する合言葉。`?admin=<合言葉>` で一度開くと、その端末に覚える。
+ * **プログラムの中に書いてあるので、本気で探す人には見つかる**。
+ * 身内で遊ぶ範囲の歯止めであって、守りではない
+ */
+const ADMIN_KEY = 'enbu-hiro-0224';
+const ADMIN_FLAG = 'enbu.admin';
+
+/** 全角と半角、空白の違いを無視して比べるための形にそろえる */
+function flatten(v: string) {
+  return v.normalize('NFKC').replace(/\s+/g, '').toLowerCase();
+}
+
+/** 予約された名前を含んでいるか */
+export function isReservedName(v: string) {
+  const n = flatten(v);
+  return RESERVED.some((w) => n.includes(flatten(w)));
+}
+
+/** この端末が解錠されているか。`?admin=<合言葉>` で解錠する */
+export function isAdmin() {
+  try {
+    const q = new URLSearchParams(location.search).get('admin');
+    if (q !== null) {
+      if (q === ADMIN_KEY) localStorage.setItem(ADMIN_FLAG, '1');
+      else localStorage.removeItem(ADMIN_FLAG);
+    }
+    return localStorage.getItem(ADMIN_FLAG) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /** 名前の最大文字数 */
 export const NAME_MAX = 12;
 const NAME_KEY = 'enbu.name';

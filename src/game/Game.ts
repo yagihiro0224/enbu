@@ -14,7 +14,7 @@ import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
-import { Ranking, cleanName, type Entry } from './Rank';
+import { Ranking, cleanName, isReservedName, isAdmin, type Entry } from './Rank';
 import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
@@ -155,7 +155,15 @@ export class Game {
     this.ui.onMusicToggle = (on) => { for (const m of this.musicAll) m.setMuted(!on); };
     // 名前とランキング
     this.ui.setName(this.ranking.name);
-    this.ui.onName = (v) => { this.ranking.name = v; };
+    this.ui.onName = (v) => {
+      // 管理者を名乗れるのは解錠した端末だけ
+      if (isReservedName(v) && !isAdmin()) {
+        this.ui.rejectName('「管理者」は利用できない文言だよ。');
+        this.ranking.name = '';
+        return;
+      }
+      this.ranking.name = v;
+    };
     this.ui.onRankOpen = () => void this.openRanking();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
@@ -302,6 +310,10 @@ export class Game {
     }
     // ?audiodbg で音の状態を画面に出す。「BGM が聞こえない」ときの切り分け用
     if (q.has('audiodbg')) this.showAudioDebug();
+    // ?nametest で、使えない名前を入れたときの見た目を確かめる
+    if (q.has('nametest')) {
+      setInterval(() => { this.ui.setName('管理者'); this.ui.onName('管理者'); }, 900);
+    }
     if (q.has('bot')) this.input.bot = true;
     // ?hittest 単体ならタイトル画面の状態を調べる
     if (q.has('hittest') && !q.has('t') && !q.has('autostart')) setTimeout(() => this.hitTest(), 30);
@@ -496,8 +508,10 @@ export class Game {
   /** クリアしたスコアをランキングに登録し、リザルトに順位を出す */
   private async submitScore() {
     if (!this.score) return;
+    const typed = this.ui.enteredName || this.ranking.name;
+    const name = isReservedName(typed) && !isAdmin() ? '' : typed;
     const entry: Entry = {
-      name: cleanName(this.ui.enteredName || this.ranking.name),
+      name: cleanName(name),
       score: this.score.total,
       rank: this.score.rank.name,
       char: CHARS[this.current].name,

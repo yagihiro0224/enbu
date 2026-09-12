@@ -218,7 +218,7 @@ const CSS = `
 @keyframes newrec { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 
 /* 名前の入力（タイトル） */
-#nameRow { display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
+#nameRow { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
 #nameRow.hidden { display: none; }
 #nameRow label { font-size: 12px; letter-spacing: 0.2em; color: #ffd6c0; }
 #pname { width: 150px; padding: 8px 12px; border-radius: 20px; border: 2px solid rgba(255,179,71,0.7);
@@ -227,6 +227,11 @@ const CSS = `
 #rankbtn { pointer-events: auto; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
   border: 2px solid rgba(200,160,255,0.7); background: rgba(30,10,40,0.8); color: #e8c8ff; cursor: pointer; font-family: inherit; }
 #rankbtn:active { transform: scale(0.95); }
+/* 使えない名前を入れたときの注意書き */
+#namewarn { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 8px; pointer-events: none;
+  font-size: 12px; font-weight: 700; color: #ff9a8a; text-shadow: 0 1px 4px #000; white-space: nowrap;
+  opacity: 0; transition: opacity 0.25s; }
+#namewarn.on { opacity: 1; }
 
 /* ランキングの表 */
 .ranklist { width: 100%; display: flex; flex-direction: column; gap: 3px; }
@@ -340,6 +345,7 @@ export class UI {
           <label for="pname">なまえ</label>
           <input id="pname" maxlength="12" placeholder="ななし" autocomplete="off" spellcheck="false">
           <button id="rankbtn" type="button">ランキング</button>
+          <div id="namewarn"></div>
         </div>
         <button id="startbtn" class="hidden">ゲーム開始</button>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
@@ -438,6 +444,7 @@ export class UI {
     // 名前の入力。打ち替えるたびに呼び出し側へ渡す
     this.nameRow = q('#nameRow');
     this.nameInput = q('#pname') as HTMLInputElement;
+    this.nameWarn = q('#namewarn');
     this.nameInput.addEventListener('input', () => this.onName(this.nameInput.value));
     this.nameInput.addEventListener('keydown', (e) => {
       e.stopPropagation(); // ゲームの操作キーに拾われないように
@@ -467,6 +474,17 @@ export class UI {
 
   private nameRow!: HTMLElement;
   private nameInput!: HTMLInputElement;
+  private nameWarn!: HTMLElement;
+  private nameWarnTimer = 0;
+
+  /** 入力された名前を突き返す。欄を空にして理由を出す */
+  rejectName(message: string) {
+    this.nameInput.value = '';
+    this.nameWarn.textContent = message;
+    this.nameWarn.classList.add('on');
+    clearTimeout(this.nameWarnTimer);
+    this.nameWarnTimer = window.setTimeout(() => this.nameWarn.classList.remove('on'), 3200);
+  }
   private rankBoard!: HTMLElement;
   private rankList!: HTMLElement;
   private rankNote!: HTMLElement;

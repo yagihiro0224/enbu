@@ -491,3 +491,15 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   タイトルでキャラを選ぶまで音は出ない（`UI.onGesture` → `ensureMusic`）
 - ファイルとコードの確認は `?bgmtest`（置かれている mp3 の名前を出す）と、
   `curl -o /dev/null -w "%{http_code} %{content_type}" <URL>/audio/boss_battle_bgm_001.MP3`
+
+## 名前の予約語（2026-09-12）
+
+- `Rank.ts` の `RESERVED`（今は `管理者` のみ）を**含む**名前は弾く。
+  全角半角と空白を無視して比べるので「管 理 者」「管理者A」も弾く。判定は `isReservedName()`
+- 弾いたときは `UI.rejectName()` で入力欄を空にし、`「管理者」は利用できない文言だよ。` を 3.2 秒出す
+- **解錠はユーザーの端末だけ**。`?admin=enbu-hiro-0224` で一度開くと localStorage の `enbu.admin` に覚える。
+  合言葉を変えるときは `ADMIN_KEY` を直す。`?admin=` に違う値を入れると解錠は消える
+- **プログラムの中に合言葉が書いてあるので、本気で探す人には見つかる**。身内で遊ぶ範囲の歯止め。
+  点数がもともと偽装できるのと同じ水準の守り。サーバー側では名前を見ていない
+- 記録するときにも `submitScore()` で再度確かめ、解錠していなければ名前を捨てて「ななし」にする
+- 検証は `?nametest`（管理者を打ち込んだ状態を再現する）
