@@ -603,6 +603,10 @@ export class UI {
   setResultRanking(entries: Entry[], meAt: number) {
     this.renderList(this.resRankBox, entries, meAt, 5);
   }
+  /** 順位表の代わりに一言だけ出す */
+  setResultNote(text: string) {
+    this.resRankBox.innerHTML = `<div class="rank-lose">${esc(text)}</div>`;
+  }
 
   private musicBtn!: HTMLElement;
   /** BGM を鳴らすか。localStorage に覚える */

@@ -20,9 +20,10 @@ const RANK_ENDPOINT = 'https://enbu-rank.yagi-hiro-0224.workers.dev/';
 /** 名前の最大文字数 */
 export const NAME_MAX = 12;
 const NAME_KEY = 'enbu.name';
-const LIST_KEY = 'enbu.rank';
-/** 端末内に残す件数 */
-const KEEP = 100;
+/** 名前ごとの自己ベスト。**一覧は持たない**（みんなのランキングがあるので端末内の順位表は不要） */
+const BEST_KEY = 'enbu.best';
+/** 昔の版が使っていた端末内の一覧。見つけたら消す */
+const OLD_LIST_KEY = 'enbu.rank';
 
 export interface Entry {
   name: string;
@@ -35,8 +36,6 @@ export interface Entry {
   combo: number;
   /** 記録した時刻（ミリ秒） */
   at: number;
-  /** 端末内の記録を見分けるための印。サーバーには送らない */
-  mine?: boolean;
 }
 
 /** 名前を整える。制御文字と前後の空白を落とし、長さを切り詰める */
@@ -91,42 +90,38 @@ export class Ranking {
     }
   }
 
-  /** この端末の記録。得点の高い順 */
-  local(): Entry[] {
+  /** 名前ごとの自己ベスト。{ 名前: 点数 } */
+  private bests(): Record<string, number> {
     try {
-      const raw = localStorage.getItem(LIST_KEY);
-      if (!raw) return [];
-      const list = JSON.parse(raw) as Entry[];
-      return Array.isArray(list) ? list.map((e) => ({ ...e, mine: true })) : [];
+      // 昔の版が残した一覧は使わないので片付ける
+      localStorage.removeItem(OLD_LIST_KEY);
+      const raw = localStorage.getItem(BEST_KEY);
+      const o = raw ? (JSON.parse(raw) as Record<string, number>) : {};
+      return o && typeof o === 'object' ? o : {};
     } catch {
-      return [];
-    }
-  }
-
-  private saveLocal(list: Entry[]) {
-    try {
-      localStorage.setItem(LIST_KEY, JSON.stringify(list.slice(0, KEEP).map(({ mine, ...e }) => ({ ...e, mine }))));
-    } catch {
-      /* 保存できない設定でも動かす */
+      return {};
     }
   }
 
   /**
    * その名前のこれまでの最高点。記録がなければ 0。
-   * 名前は打ち替えられるので、端末内の記録から同じ名前だけを見る
+   * 名前は打ち替えられるので、名前ごとに覚える
    */
   bestOf(name: string) {
-    const n = cleanName(name);
-    return this.local().reduce((m, e) => (e.name === n ? Math.max(m, e.score) : m), 0);
+    return this.bests()[cleanName(name)] ?? 0;
   }
 
-  /** 端末内に記録して、何位だったかを返す（1 始まり） */
-  addLocal(e: Entry) {
-    const list = this.local();
-    list.push({ ...e, mine: true });
-    list.sort((a, b) => b.score - a.score || a.seconds - b.seconds);
-    this.saveLocal(list);
-    return list.findIndex((x) => x.at === e.at && x.score === e.score) + 1;
+  /** 自己ベストを更新する */
+  saveBest(e: Entry) {
+    const n = cleanName(e.name);
+    const all = this.bests();
+    if ((all[n] ?? 0) >= e.score) return;
+    all[n] = e.score;
+    try {
+      localStorage.setItem(BEST_KEY, JSON.stringify(all));
+    } catch {
+      /* 保存できない設定でも動かす */
+    }
   }
 
   /** サーバーの上位を取る。使えないときや失敗したときは null */
@@ -152,12 +147,10 @@ export class Ranking {
       return null;
     }
     try {
-      const { mine, ...body } = e;
-      void mine;
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
+        body: JSON.stringify(e),
       });
       if (!res.ok) return null;
       return normalize(await res.json());

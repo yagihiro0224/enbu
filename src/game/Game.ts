@@ -551,14 +551,14 @@ export class Game {
     // 記録する前に、同じ名前のこれまでの最高点を見ておく
     const prev = this.ranking.bestOf(entry.name);
     this.myEntry = entry;
-    this.ranking.addLocal(entry);
+    this.ranking.saveBest(entry);
     if (prev === 0) this.setRecordNote('first');
     else if (entry.score > prev) this.setRecordNote('record', entry.score - prev);
 
-    // みんなのランキングが使えるなら送る。失敗したら端末内の記録を出す
+    // みんなのランキングへ送る。届かなければ順位は出せない
     const shared = await this.ranking.submitShared(entry);
-    const list = shared ?? this.ranking.local();
-    this.ui.setResultRanking(list, entry.at);
+    if (shared) this.ui.setResultRanking(shared, entry.at);
+    else this.ui.setResultNote('いまは順位を取得できませんでした。');
     // みんなの 1 位はそれより上の知らせ
     if (shared && shared[0]?.at === entry.at) this.setRecordNote('top');
   }
@@ -566,15 +566,14 @@ export class Game {
   /** ランキング画面を開く */
   private async openRanking() {
     const meAt = this.myEntry?.at ?? 0;
-    const local = this.ranking.local();
     if (!this.ranking.shared) {
-      this.ui.showRankBoard(local, 'この端末に残っている記録です', meAt);
+      this.ui.showRankBoard([], 'ランキングは今つながっていません', meAt);
       return;
     }
-    // 取れるまで表は出さない。端末内の記録を先に出すと、みんなの順位と紛らわしい
+    // 取れるまで表は出さない
     this.ui.showRankBoard([], 'みんなのランキング', meAt, true);
     const shared = await this.ranking.fetchShared();
-    this.ui.showRankBoard(shared ?? local, shared ? 'みんなのランキング' : '通信できないので、この端末の記録を出しています', meAt);
+    this.ui.showRankBoard(shared ?? [], shared ? 'みんなのランキング' : '通信できませんでした', meAt);
   }
 
   /** 結果を共有する。共有機能が無ければクリップボードへ写す */
