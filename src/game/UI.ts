@@ -121,6 +121,10 @@ const CSS = `
 #res-panel, #rank-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
   gap: 10px; padding: 16px 30px 16px 40px;
   background: linear-gradient(90deg, rgba(10,3,9,0) 0%, rgba(12,4,11,0.62) 12%, rgba(12,4,11,0.88) 34%, rgba(12,4,11,0.94) 100%); }
+/* 負けでも二人を見せたいので、面板を下へ寄せて上を空ける */
+#result.lose { justify-content: flex-end; padding-bottom: 3vh; }
+/* リザルトのかぶせは下を濃く。上に立つ二人を暗く沈めない */
+#result { background: linear-gradient(180deg, rgba(10,2,8,0.12) 0%, rgba(14,3,10,0.5) 38%, rgba(10,2,8,0.9) 72%); }
 #result.lose #res-panel { width: min(92vw, 600px); height: auto; align-items: stretch; padding: 20px 28px 22px; border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.14); background: linear-gradient(180deg, rgba(22,7,17,0.94), rgba(9,2,8,0.97)); text-align: center; }
 #result.lose #res-rank, #result.lose #res-title { text-align: center; }

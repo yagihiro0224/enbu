@@ -19,7 +19,7 @@ import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
 
-import { Animator, poseCarry, poseRam, poseClap } from './Anim';
+import { Animator, poseCarry, poseRam, poseClap, poseIdle } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -455,7 +455,7 @@ export class Game {
   private current: CharId = 'mahiro';
   private swapCd = 0;
   /** 勝利演出: 隣で拍手する相棒 */
-  private partner: { rig: Rig; anim: Animator; t: number } | null = null;
+  private partner: { rig: Rig; anim: Animator; t: number; win: boolean } | null = null;
   /**
    * 合体必殺技「スーパー！まひろ頭突き！」。
    * ちさとがまひろを抱えて頭から突っ込む。**この間ボスは何もできず、必ず当たる**
@@ -904,29 +904,33 @@ export class Game {
       this.sfx.win();
       this.ui.showBanner('浄化', '#ffe08a', 2);
       this.ui.flash(0.8);
-      this.setupVictory();
     } else {
       this.sfx.lose();
       this.ui.showBanner('散華', '#c0a0ff', 2);
     }
+    this.setupResultPair(win);
   }
 
   /** 勝ったキャラを正面から大きく見せ、もう一人を隣に立たせて拍手させる */
-  private setupVictory() {
-    this.player.startWin();
+  /**
+   * スコア画面に二人を並べる。**勝っても負けても必ず二人出す**。
+   * 相棒は操作キャラのすぐ隣（縦画面でも収まる距離）
+   */
+  private setupResultPair(win: boolean) {
+    if (win) this.player.startWin();
     this.victoryDir.set(Math.sin(this.player.heading), 0, Math.cos(this.player.heading));
     const otherId: CharId = this.current === 'mahiro' ? 'chisato' : 'mahiro';
     const rig = this.rigs[otherId];
     if (!rig || rig === this.player.rig) return;
     // カメラから見た右方向。相棒は画面の左側（スコア面板の反対側）に置く
     const right = new THREE.Vector3(this.victoryDir.z, 0, -this.victoryDir.x);
-    rig.root.position.copy(this.player.pos).addScaledVector(right, -1.05).addScaledVector(this.victoryDir, -0.5);
-    rig.root.rotation.y = this.player.heading + 0.3;
-    rig.setFist?.(0.25, 1);
+    rig.root.position.copy(this.player.pos).addScaledVector(right, -0.78).addScaledVector(this.victoryDir, -0.12);
+    rig.root.rotation.y = this.player.heading + 0.22;
+    rig.setFist?.(0.25, win ? 1 : 0.3);
     castShadows(rig.root);
     this.scene.add(rig.root);
-    this.partner = { rig, anim: new Animator(rig), t: 0 };
-    console.info(`victory: winner=${this.current} partner=${otherId}`);
+    this.partner = { rig, anim: new Animator(rig), t: 0, win };
+    console.info(`result: main=${this.current} partner=${otherId} win=${win}`);
   }
 
   private clearVictory() {
@@ -1003,7 +1007,7 @@ export class Game {
       this.partner.t += dt;
       // 少し遅れて拍手を始める
       const pt = Math.max(0, this.partner.t - 0.5);
-      this.partner.anim.apply(poseClap(pt), 12, dt);
+      this.partner.anim.apply(this.partner.win ? poseClap(pt) : poseIdle(this.partner.t), 12, dt);
       this.partner.rig.update(dt);
     }
     this.boss.update(dt, this.ctx, playing);
@@ -1098,15 +1102,20 @@ export class Game {
         .addScaledVector(sp.dir, close ? 0.2 : -1.4);
       desired.y = close ? 1.9 : 2.5;
       look = mid.clone();
-    } else if (this.state === 'over' && this.overWin) {
-      // 正面から全身を大きく。被写体が画面の左に寄るよう、注視点を右へずらす
+    } else if (this.state === 'over') {
+      // 二人を正面から。**縦画面ではスコア面板が下半分を覆う**ので、
+      // 注視点を下げて二人を画面の上へ追い出す
       const d = this.victoryDir;
       const right = new THREE.Vector3(d.z, 0, -d.x);
       const wide = this.camera.aspect >= 1;
-      desired = new THREE.Vector3(pl.pos.x + d.x * 3.3, pl.pos.y + 1.0, pl.pos.z + d.z * 3.3);
-      look = new THREE.Vector3(pl.pos.x, pl.pos.y + 0.9, pl.pos.z)
-        .addScaledVector(right, wide ? 0.8 : 0.3);
-      if (!wide) look.y += 0.35;
+      // 二人の真ん中。相棒がいなければ操作キャラの位置
+      const mid = this.partner
+        ? new THREE.Vector3().addVectors(pl.pos, this.partner.rig.root.position).multiplyScalar(0.5)
+        : pl.pos.clone();
+      const dist = wide ? 3.6 : 4.0;
+      desired = new THREE.Vector3(mid.x + d.x * dist, pl.pos.y + 1.05, mid.z + d.z * dist);
+      look = new THREE.Vector3(mid.x, pl.pos.y + (wide ? 0.9 : 0.25), mid.z)
+        .addScaledVector(right, wide ? 0.8 : 0);
     } else if (this.state === 'title') {
       const a = this.time * 0.15;
       desired = new THREE.Vector3(Math.sin(a) * 11, 3.5, Math.cos(a) * 11);

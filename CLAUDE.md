@@ -168,8 +168,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   後ろの行が消えたように写る。まとめて 1 回フェードさせている
 - 称号は level 0〜4 で演出が変わる（.rk-lv4 が超派手＝虹色グラデ＋光条＋拍動、lv0 は小さい灰色）
 - カウンタは Player の meleeHits / meleeParries / bulletParries / damaged。reset() で必ず 0 に戻す
-- 勝利演出: Game.setupVictory()。勝者は Player の 'win' 状態（poseVictory、style.sharp で型が変わる）、
-  もう一人は this.partner として scene に直接足して poseClap。カメラは正面 3.3m、注視点を右へずらして被写体を画面左に寄せる
+- リザルトの立ち姿: `Game.setupResultPair(win)`。**勝ち負けにかかわらず必ず二人出す**（2026-09-12 ユーザー指示）。
+  勝者は Player の 'win' 状態（poseVictory）、相棒は `this.partner` として scene に直接足し、勝ちは poseClap、負けは poseIdle。
+  相棒は操作キャラの**すぐ隣**（右へ -0.78m、奥へ -0.12m。以前は -1.05/-0.5 で縦画面からはみ出していた）
+- カメラは二人の**真ん中**を見る。**縦画面はスコア面板が下半分を覆う**ので、注視点を下げて（y +0.25）二人を上へ追い出し、
+  距離も 4.0m まで引く。横画面は従来どおり注視点を右へずらして被写体を左に寄せる
+- 負けの面板は中央ではなく**下寄せ**（`#result.lose { justify-content: flex-end }`）。中央だと二人が隠れる。
+  かぶせの暗さも上を薄い下重心の gradient にして、上に立つ二人を沈めないようにした
 - リザルトの立ち絵は `public/images/<mahiro|chisato>_cap.png`。無ければ枠ごと非表示（img の error で .noimg）
 - 動作確認: `?t=1&win=42&sec=52&mp=3&bp=7`（勝ちリザルト）、`&lose` で負け、`&dmg` で被弾あり、`&char=chisato` で勝者を変更。
   注意: この debug 経路は同期ループのため、ヘッドレスだと overlay のフェード途中で撮れて全体が半透明に写ることがある（実機では問題ない）
