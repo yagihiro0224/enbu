@@ -586,10 +586,15 @@ export class UI {
       `<span class="sc">${e.score.toLocaleString()}</span></div>`;
   }
 
-  /** タイトルから開くランキング */
-  showRankBoard(entries: Entry[], note: string, meAt = 0) {
+  /**
+   * タイトルから開くランキング。
+   * loading のあいだは表を出さない。**待ち時間に端末内の記録を出すと、
+   * それが「みんなのランキング」に見えてしまう**
+   */
+  showRankBoard(entries: Entry[], note: string, meAt = 0, loading = false) {
+    if (loading) this.rankList.innerHTML = '<div class="rank-empty">読み込んでいます…</div>';
     // 10 位まで。自分がそこから外れていたら末尾に自分の行を足す
-    this.renderList(this.rankList, entries, meAt, 10);
+    else this.renderList(this.rankList, entries, meAt, 10);
     this.rankNote.textContent = note;
     this.rankBoard.classList.remove('hidden');
   }

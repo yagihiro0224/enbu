@@ -571,7 +571,8 @@ export class Game {
       this.ui.showRankBoard(local, 'この端末に残っている記録です', meAt);
       return;
     }
-    this.ui.showRankBoard(local, '読み込み中…', meAt);
+    // 取れるまで表は出さない。端末内の記録を先に出すと、みんなの順位と紛らわしい
+    this.ui.showRankBoard([], 'みんなのランキング', meAt, true);
     const shared = await this.ranking.fetchShared();
     this.ui.showRankBoard(shared ?? local, shared ? 'みんなのランキング' : '通信できないので、この端末の記録を出しています', meAt);
   }
