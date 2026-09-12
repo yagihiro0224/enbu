@@ -273,6 +273,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   1. 位置と向きを `rig.update(dt)` より**前**に確定させる
   2. 前フレームから 2m 以上飛んだら `group.updateMatrixWorld(true)` → `rig.resetSprings?.()` で今の姿勢から組み直す
   3. `Rig.resetSprings?()` を追加（VrmRig は `vrm.springBoneManager?.reset()`）。Boss / Player の reset と setRig でも呼ぶ
+- **2026-09-12 に追加の対処**（「まだ髪が消えて見える場合がある」との指摘）:
+  1. **向きの飛びも見る**。突進の開始で `heading` を直接入れている箇所があり、回転が飛ぶと位置と同じく髪が暴れる。
+     1 フレームで 1.1 ラジアン以上変わったら組み直す（ボスと主人公の両方）
+  2. **`rig.update()` に渡す dt を 0.04 で頭打ち**にする。大きい dt は揺れ物の計算を発散させる
+  3. **主人公は位置と向きの反映が `rig.update()` より後だった**（ボスだけ直っていた）。順番を入れ替えた
 - 検証: `?tp` でボスを (7,0,-7) へ瞬間的に飛ばす。`?tpf=コマ数` で観察するフレームを変えられる
 
 ## BGM を緊迫感のある曲に作り直し（2026-09-11）

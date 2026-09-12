@@ -57,6 +57,8 @@ export class Boss {
   private tmp2 = new THREE.Vector3();
   private circle: THREE.Mesh | null = null;
   private lastPos = new THREE.Vector3(0, 0, -6);
+  /** 前フレームの向き。急に変わると髪が暴れるので見張る */
+  private lastHeading = 0;
 
   /** VRM は身長を揃えるために root を縮めてある。その倍率を覚えておく */
   private baseScale = 1;
@@ -97,6 +99,7 @@ export class Boss {
   reset() {
     this.pos.set(0, 0, -6);
     this.heading = 0;
+    this.lastHeading = 0;
     this.vel.set(0, 0, 0);
     this.hp = this.maxHp;
     this.poise = 0;
@@ -555,13 +558,17 @@ export class Boss {
     this.rig.root.position.y = damp(this.rig.root.position.y, hover, 6, dt);
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
-    // 瞬間移動などで位置が一気に飛んだら、揺れ物を今の姿勢で組み直す
-    if (this.lastPos.distanceToSquared(this.pos) > 4) {
+    // 瞬間移動などで位置が一気に飛んだら、揺れ物を今の姿勢で組み直す。
+    // **向きが一気に変わったときも同じ**（突進の開始で heading を直接入れている箇所がある）
+    const dh = Math.abs(Math.atan2(Math.sin(this.heading - this.lastHeading), Math.cos(this.heading - this.lastHeading)));
+    if (this.lastPos.distanceToSquared(this.pos) > 4 || dh > 1.1) {
       this.group.updateMatrixWorld(true);
       this.rig.resetSprings?.();
     }
     this.lastPos.copy(this.pos);
-    this.rig.update(dt);
+    this.lastHeading = this.heading;
+    // **大きい dt を渡すと揺れ物の計算が発散する**ので頭を押さえる
+    this.rig.update(Math.min(dt, 0.04));
     this.rig.setFlash(this.flash);
     this.rig.setWeaponGlow(this.glow + (this.phase >= 3 ? 0.5 : 0));
     // 魔法陣

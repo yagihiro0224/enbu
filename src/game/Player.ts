@@ -60,6 +60,8 @@ export class Player {
   damaged = false;
   /** 必殺ゲージ 0..1。満タンで合体必殺技が撃てる */
   superGauge = 0;
+  /** 前フレームの向き。飛んだら揺れ物を組み直すのに使う */
+  private lastHeading = 0;
   private runCycle = 0;
   private flash = 0;
   private glow = 0;
@@ -110,6 +112,8 @@ export class Player {
   reset() {
     this.pos.set(0, 0, 5.5);
     this.heading = Math.PI;
+    this.lastHeading = Math.PI;
+    this.lastPos.copy(this.pos);
     this.vel.set(0, 0, 0);
     this.hp = this.maxHp;
     this.state = 'idle';
@@ -573,15 +577,20 @@ export class Player {
     const fwd = this.forward(this.tmp);
     const velF = this.vel.x * fwd.x + this.vel.z * fwd.z;
     this.anim.apply(pose, rate, dt, velF);
-    this.rig.update(dt);
+    // **位置と向きを揺れ物の計算より先に確定させる**。後にすると 1 フレーム遅れて髪が暴れる
     this.group.position.copy(this.pos);
     this.rig.root.rotation.y = this.heading;
-    // 位置が一気に飛んだら揺れ物を組み直す（開始位置に戻したときなど）
-    if (this.lastPos.distanceToSquared(this.pos) > 4) {
+    // 位置が飛んだとき（開始位置へ戻すなど）と、
+    // 向きが一気に変わったとき（攻撃や回避で heading を直接入れている）は揺れ物を組み直す
+    const dh = Math.abs(Math.atan2(Math.sin(this.heading - this.lastHeading), Math.cos(this.heading - this.lastHeading)));
+    if (this.lastPos.distanceToSquared(this.pos) > 4 || dh > 1.1) {
       this.group.updateMatrixWorld(true);
       this.rig.resetSprings?.();
     }
     this.lastPos.copy(this.pos);
+    this.lastHeading = this.heading;
+    // **大きい dt を渡すと揺れ物の計算が発散する**ので頭を押さえる
+    this.rig.update(Math.min(dt, 0.04));
     // 軌跡: ナイフは刃、蹴りは右脚（膝→足先）に付ける
     if (this.state === 'attack') {
       const cfg = this.style.attacks[this.attackStep];
