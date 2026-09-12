@@ -686,6 +686,7 @@ export class Game {
   }
 
   private restart() {
+    this.sfx.stopVoiceLoop(); // スコア画面を離れるので声を止める
     this.clearVictory();
     this.ui.hideResult();
     this.bullets.clear();
@@ -824,8 +825,8 @@ export class Game {
         if (this.score) {
           this.ui.showResult(this.overWin, this.score, this.current, this.playTime, this.player.maxCombo);
           this.ui.setRecordNote(this.recordNote.kind, this.recordNote.gain);
-          // 勝利の音と重ならないよう少し置いてから声を鳴らす
-          void this.sfx.playVoice(0.9);
+          // 勝利の音と重ならないよう少し置いてから、画面を離れるまで流し続ける
+          this.sfx.startVoiceLoop(0.9);
         }
       }
     }

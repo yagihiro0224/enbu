@@ -7,6 +7,12 @@
  * local/ は公開されない（.gitignore）ので、手元だけで鳴らしたい音声はそこへ。
  */
 const VOICE_MAX = 24;
+/**
+ * 声の音量。master 0.5 を通るので実際はこの半分。
+ * 2026-09-12 にユーザー指示で 0.9 → 1.5 へ。
+ * これ以上上げると BGM と重なったとき歪む
+ */
+const VOICE_GAIN = 1.5;
 const voiceName = (i: number) => `voice${String(i).padStart(2, '0')}.mp3`;
 
 /**
@@ -157,6 +163,11 @@ export class Sfx {
   private voices: string[] = [];
   private voiceBufs = new Map<string, AudioBuffer>();
   private lastVoice = '';
+  /** 繰り返しの世代。止めるときに増やして、古い繰り返しを無効にする */
+  private voiceGen = 0;
+  private voiceTimer = 0;
+  private voiceSrc: AudioBufferSourceNode | null = null;
+  private voiceGain: GainNode | null = null;
 
   /** 置かれている声のファイルを調べる。起動を止めないよう中身は読まない */
   private async findVoices() {
@@ -190,11 +201,11 @@ export class Sfx {
   }
 
   /**
-   * 声を 1 本、無作為に鳴らす。
-   * 直前と同じものは避ける。置かれていなければ何もしない
+   * 声を 1 本、無作為に鳴らす。直前と同じものは避ける。
+   * 鳴らせたら長さ（秒）を返し、鳴らせなければ 0 を返す。
    */
   async playVoice(delay = 0) {
-    if (this.muted || !this.ctx || !this.master || this.voices.length === 0) return false;
+    if (this.muted || !this.ctx || !this.master || this.voices.length === 0) return 0;
     const pool = this.voices.length > 1 ? this.voices.filter((n) => n !== this.lastVoice) : this.voices;
     const name = pool[Math.floor(Math.random() * pool.length)];
     this.lastVoice = name;
@@ -202,24 +213,66 @@ export class Sfx {
     if (!buf) {
       try {
         const res = await fetch(`${import.meta.env.BASE_URL}audio/voice/${name}`);
-        if (!res.ok) return false;
+        if (!res.ok) return 0;
         buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
         this.voiceBufs.set(name, buf);
       } catch {
-        return false;
+        return 0;
       }
     }
-    if (this.muted) return false;
+    if (this.muted) return 0;
     const t = this.ctx.currentTime + delay;
     const src = this.ctx.createBufferSource();
     src.buffer = buf;
     const g = this.ctx.createGain();
-    g.gain.value = 0.9; // 声は聞き取れるように少し大きめ
+    g.gain.value = VOICE_GAIN;
     src.connect(g).connect(this.master);
     src.start(t);
     src.stop(t + buf.duration + 0.05);
-    return true;
+    this.voiceSrc = src;
+    this.voiceGain = g;
+    return delay + buf.duration;
   }
+
+  /**
+   * スコア画面にいる間、声を間を置きながら鳴らし続ける。
+   * 画面を離れるときは stopVoiceLoop() を呼ぶこと
+   */
+  startVoiceLoop(firstDelay = 0.9, gap = 1.1) {
+    const gen = ++this.voiceGen;
+    const step = async (delay: number) => {
+      if (gen !== this.voiceGen) return;
+      const dur = await this.playVoice(delay);
+      if (gen !== this.voiceGen) return;
+      if (dur <= 0) return; // 声が無い、または鳴らせない
+      this.voiceTimer = window.setTimeout(() => step(0), (dur + gap) * 1000);
+    };
+    void step(firstDelay);
+  }
+
+  /** 声を止める。鳴っている途中なら短く絞って切る */
+  stopVoiceLoop() {
+    this.voiceGen++;
+    if (this.voiceTimer) {
+      clearTimeout(this.voiceTimer);
+      this.voiceTimer = 0;
+    }
+    if (this.voiceSrc && this.voiceGain && this.ctx) {
+      const t = this.ctx.currentTime;
+      const g = this.voiceGain.gain;
+      g.cancelScheduledValues(t);
+      g.setValueAtTime(g.value, t);
+      g.linearRampToValueAtTime(0, t + 0.2);
+      try {
+        this.voiceSrc.stop(t + 0.25);
+      } catch {
+        // すでに終わっている
+      }
+      this.voiceSrc = null;
+      this.voiceGain = null;
+    }
+  }
+
 
   /** 指定のノードを残響へ送る */
   private send(node: AudioNode, amount: number) {
