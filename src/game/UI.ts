@@ -335,6 +335,27 @@ const CSS = `
 }
 
 /* 全画面ボタン。触れる端末でだけ出す（パソコンでは不要） */
+/* 開始したときに一度だけ出す立ち絵。
+   立ち絵の画像は「バストアップ｜全身」の 2 コマ並びなので、**右側（全身）を切り出す** */
+#intro { position: absolute; inset: 0; z-index: 7; display: none; align-items: center; justify-content: center;
+  pointer-events: none; background: radial-gradient(ellipse at center, rgba(16,3,10,0.82), rgba(4,1,4,0.96)); }
+#intro.on { display: flex; animation: introfade 0.25s ease-out; }
+#intro .wrap { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#intro .pic { position: relative; width: clamp(150px, 34vh, 300px); aspect-ratio: 0.66; }
+#intro .pic img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 98% center;
+  border-radius: 16px; box-shadow: 0 0 0 2px rgba(255,255,255,0.5), 0 0 34px var(--tint, #ffb347); }
+#intro .pic::before { content: ''; position: absolute; inset: -26px; border-radius: 34px; z-index: -1;
+  background: radial-gradient(ellipse at center, var(--tint, #ffb347) 0%, transparent 68%); opacity: 0.45; filter: blur(12px); }
+#intro.on .wrap { animation: introin 0.45s cubic-bezier(0.15, 1.3, 0.4, 1) both; }
+#intro .nm { font-size: clamp(18px, 4.4vh, 30px); font-weight: 900; letter-spacing: 0.2em; color: #fff;
+  text-shadow: 0 2px 8px #000, 0 0 18px var(--tint, #ffb347); }
+#intro .go { font-size: 11px; letter-spacing: 0.4em; color: #ffd6a0; }
+@keyframes introfade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes introin {
+  0% { transform: translateY(18px) scale(0.9); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 /* 試遊版の印。本番と間違えないように出しっぱなしにする */
 #previewTag { position: absolute; left: 50%; transform: translateX(-50%); top: max(6px, env(safe-area-inset-top));
   z-index: 6; display: none; pointer-events: none; padding: 3px 12px; border-radius: 12px;
@@ -429,6 +450,10 @@ export class UI {
       <button id="music" title="BGM">♪</button>
       <button id="fs" title="全画面">⛶</button>
       <div id="previewTag">試遊版</div>
+      <div id="intro"><div class="wrap">
+        <span class="pic"><img alt=""></span>
+        <span class="nm"></span><span class="go">出　撃</span>
+      </div></div>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">
@@ -529,6 +554,9 @@ export class UI {
     this.startBtn = q('#startbtn');
     this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(this.selected); });
     this.previewTag = q('#previewTag');
+    this.intro = q('#intro');
+    this.introImg = q('#intro .pic img') as HTMLImageElement;
+    this.introName = q('#intro .nm');
     this.fsBtn = q('#fs');
     this.fsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onFullscreen(); });
     this.musicBtn = q('#music');
@@ -672,6 +700,27 @@ export class UI {
   }
 
   private previewTag!: HTMLElement;
+  private intro!: HTMLElement;
+  private introImg!: HTMLImageElement;
+  private introName!: HTMLElement;
+
+  /**
+   * 開始したときの立ち絵を出す。立ち絵は 2 コマ並びなので右側（全身）を使う。
+   * 消すときは showIntro(null)
+   */
+  showIntro(char: CharId | null) {
+    if (!this.intro) return;
+    if (char === null) {
+      this.intro.classList.remove('on');
+      return;
+    }
+    const c = CHARS[char];
+    this.intro.style.setProperty('--tint', c.tint);
+    this.introImg.src = `${import.meta.env.BASE_URL}images/${c.cap}`;
+    this.introName.textContent = c.name;
+    this.intro.classList.add('on');
+  }
+
   /** 試遊版の印を出す */
   setPreviewTag(v: boolean) { this.previewTag?.classList.toggle('show', v); }
 

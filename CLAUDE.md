@@ -632,3 +632,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   相棒は倒れた体の上半身の横（右へ -0.56、奥へ -0.42）に置き、体を少し向ける（heading + 0.52）
 - カメラは負けのとき寄って低く構える（距離 2.9、高さ 0.72、注視点 0.08）。
   **縦画面は下半分がスコア面板なので、収まるのは上半身まで**。横画面は面板が画面を覆うのでほぼ見えない
+
+## 開始時の立ち絵（2026-09-13、まず試遊版へ）
+
+- 「ゲーム開始」を押したあと、選んだキャラの**立ち絵の右側のコマ（全身・銃）**を 1.1 秒見せてから戦闘に入る
+- `public/images/*_cap.png` は「バストアップ｜全身」の 2 コマ並び。
+  カードとリザルトは左（`object-position: 2%`）、この立ち絵は**右（`object-position: 98%`）**を切り出す
+- `UI.showIntro(char)` / `showIntro(null)`。`Game.start(char, instant)` の instant は**検証の早送り用**。
+  早送りは待てないので `?t=` などでは飛ばす
+- 状態（GState）は増やさず `introing` の旗で管理する。タイトルへ戻るときは旗を下ろす
+- 検証は `?intro=mahiro|chisato`（立ち絵を出したまま止める）

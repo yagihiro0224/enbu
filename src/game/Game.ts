@@ -46,6 +46,8 @@ const SUP_AFTER = 1.2;
 const SUP_DAMAGE = 240;
 /** 当てたあと、敵が無防備になる時間 */
 const SUP_STAGGER = 3.2;
+/** 開始時に立ち絵を見せる長さ（ミリ秒） */
+const INTRO_MS = 1100;
 
 function castShadows(root: THREE.Object3D) {
   root.traverse((o) => {
@@ -83,6 +85,8 @@ export class Game {
   /** 置かれている mp3 を調べる非同期処理。起動は止めない */
   private bgmProbe: Promise<string[] | null> = findBgmFiles();
   private musicPending = false;
+  /** 開始時の立ち絵を見せている最中か */
+  private introing = false;
   /** 音が開く前に指定された濃さを覚えておく */
   private musicLv: 0 | 1 | 2 = 0;
   private composer: EffectComposer;
@@ -322,6 +326,11 @@ export class Game {
     }
     // ?audiodbg で音の状態を画面に出す。「BGM が聞こえない」ときの切り分け用
     if (q.has('audiodbg')) this.showAudioDebug();
+    // ?intro=mahiro|chisato で開始時の立ち絵を出したまま止める
+    if (q.has('intro')) {
+      const c = (q.get('intro') === 'chisato' ? 'chisato' : 'mahiro') as CharId;
+      setTimeout(() => this.ui.showIntro(c), 200);
+    }
     if (q.has('bot')) this.input.bot = true;
     // ?hittest 単体ならタイトル画面の状態を調べる
     if (q.has('hittest') && !q.has('t') && !q.has('autostart')) setTimeout(() => this.hitTest(), 30);
@@ -331,7 +340,7 @@ export class Game {
 
     if (q.has('autostart') || q.has('t')) {
       setTimeout(() => {
-        this.start(this.current);
+        this.start(this.current, true);
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
@@ -896,17 +905,36 @@ export class Game {
     });
   }
 
-  private start(char: CharId) {
+  /**
+   * タイトルから戦闘へ。
+   * 立ち絵を 1.1 秒見せてから始める。**検証の早送りは待てないので instant で飛ばす**
+   */
+  private start(char: CharId, instant = false) {
     if (this.state !== 'title') return;
     this.setChar(char);
     this.ensureMusic();
     this.sfx.start();
     this.ui.hideTitle();
-    this.beginPlay();
+    if (instant) {
+      this.beginPlay();
+      return;
+    }
+    // 状態は 'title' のまま。旗で「立ち絵を見せている最中」を表す
+    this.introing = true;
+    this.ui.showIntro(char);
+    this.input.setVisible(false);
+    setTimeout(() => {
+      if (!this.introing) return;
+      this.introing = false;
+      this.ui.showIntro(null);
+      this.beginPlay();
+    }, INTRO_MS);
   }
 
   /** スコア画面からタイトルへ戻す */
   private backToTitle() {
+    this.introing = false;
+    this.ui.showIntro(null);
     this.resetForNewGame();
     this.state = 'title';
     this.playTime = 0;
