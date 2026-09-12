@@ -3,7 +3,10 @@ name: Deploy to GitHub Pages
 # main を本番、preview を試遊版として同じサイトに載せる。
 #   本番    https://hiro0224world.github.io/enbu/
 #   試遊版  https://hiro0224world.github.io/enbu/preview/
-# どちらのブランチへ push しても、両方を作り直して 1 つのサイトとして公開する。
+#
+# **公開できるのは main を起点にした実行だけ**（GitHub Pages の環境設定が
+# 既定でそうなっている）。preview へ push されたときは、main を起点に
+# もう一度この workflow を走らせ、そちらで両方を作って公開する。
 on:
   push:
     branches: [main, preview]
@@ -13,13 +16,25 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: write
 
 concurrency:
   group: pages
   cancel-in-progress: true
 
 jobs:
+  # preview への push は、main を起点にした実行へ橋渡しするだけ
+  redispatch:
+    if: github.ref_name != 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: main を起点に作り直す
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run deploy.yml --repo "$GITHUB_REPOSITORY" --ref main
+
   build:
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
     steps:
       # ---- 本番（main） ----
