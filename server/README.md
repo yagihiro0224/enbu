@@ -12,7 +12,8 @@
 3. エディタの中身を全部消して、`rank-worker.js` の中身を貼り付けて「Deploy」
 4. 左の「Storage & Databases」→「KV」→「Create a namespace」。名前は `enbu-rank`
 5. Worker の「Settings」→「Bindings」→「Add」→「KV namespace」。
-   **Variable name は必ず `RANK`**、Namespace は 4 で作ったものを選んで保存
+   Variable name は `RANK` を推奨。**違う名前でも動く**（コードが結び付いた KV を自動で探す）。
+   Namespace は 4 で作ったものを選んで保存
 6. Worker の URL（`https://enbu-rank.<アカウント名>.workers.dev`）を控える
 7. `src/game/Rank.ts` の `RANK_ENDPOINT` にその URL を入れて、コミットして push
 
@@ -21,6 +22,12 @@
 ```bash
 curl "https://enbu-rank.<アカウント名>.workers.dev?limit=5"
 # → {"entries":[]}
+```
+
+KV を結び付け忘れていると、代わりにこう返る。
+
+```json
+{"error":"KV が結び付けられていない。Settings > Bindings で KV namespace を追加すること"}
 ```
 
 ゲーム側は URL を書き換えなくても `?rank=<URL>` を付ければ試せます。

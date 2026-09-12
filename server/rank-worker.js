@@ -1,7 +1,8 @@
 /**
  * 炎舞 -ENBU- みんなのランキング（Cloudflare Workers 用）
  *
- * 置き方は server/README.md を参照。KV 名前空間を RANK という名前で結び付けること。
+ * 置き方は server/README.md を参照。KV 名前空間を 1 つ結び付ければ動く。
+ * 変数名は RANK を推奨するが、違う名前でも自動で見つける。
  *
  *   GET  /            上位を返す（?limit=50）
  *   POST /            記録を 1 件追加して、更新後の上位を返す
@@ -76,8 +77,21 @@ function limitPerName(list) {
   return out;
 }
 
-async function read(env) {
-  const raw = await env.RANK.get(KEY);
+/**
+ * 結び付けられた KV を探す。
+ * 変数名は RANK を想定しているが、違う名前で結び付けても動くように
+ * get と put を持つものを拾う。
+ */
+function kvOf(env) {
+  if (env?.RANK?.get) return env.RANK;
+  for (const v of Object.values(env ?? {})) {
+    if (v && typeof v.get === 'function' && typeof v.put === 'function') return v;
+  }
+  return null;
+}
+
+async function read(kv) {
+  const raw = await kv.get(KEY);
   if (!raw) return [];
   try {
     const list = JSON.parse(raw);
@@ -91,9 +105,14 @@ export default {
   async fetch(request, env) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
 
+    const kv = kvOf(env);
+    if (!kv) {
+      return json({ error: 'KV が結び付けられていない。Settings > Bindings で KV namespace を追加すること' }, 500);
+    }
+
     if (request.method === 'GET') {
       const limit = Math.min(100, Math.max(1, Number(new URL(request.url).searchParams.get('limit')) || 50));
-      const list = await read(env);
+      const list = await read(kv);
       return json({ entries: list.slice(0, limit) });
     }
 
@@ -107,8 +126,8 @@ export default {
       const entry = sanitize(body);
       if (!entry) return json({ error: 'おかしな記録' }, 400);
 
-      const list = limitPerName([...(await read(env)), entry].sort(byScore)).slice(0, KEEP);
-      await env.RANK.put(KEY, JSON.stringify(list));
+      const list = limitPerName([...(await read(kv)), entry].sort(byScore)).slice(0, KEEP);
+      await kv.put(KEY, JSON.stringify(list));
       const rank = list.findIndex((e) => e.at === entry.at && e.score === entry.score) + 1;
       return json({ entries: list, rank });
     }
