@@ -344,6 +344,10 @@ export class Game {
           this.player.debugShoot(this.ctx);
           for (let i = 0; i < Number(q.get('sf') ?? 4); i++) this.step(1 / 60);
         }
+        // ?voicetest で、置かれている声の本数を出す
+        if (q.has('voicetest')) {
+          setTimeout(() => console.info(`voicetest 見つかった本数=${this.sfx.voiceCount}`), 300);
+        }
         // ?bphase=2|3 で進化後の見た目を確かめる
         if (q.has('bphase')) {
           this.boss.forcePhase(Math.max(2, Math.min(3, Number(q.get('bphase')) || 2)), this.ctx);
@@ -784,6 +788,8 @@ export class Game {
         if (this.score) {
           this.ui.showResult(this.overWin, this.score, this.current, this.playTime, this.player.maxCombo);
           this.ui.setRecordNote(this.recordNote.kind, this.recordNote.gain);
+          // 勝利の音と重ならないよう少し置いてから声を鳴らす
+          void this.sfx.playVoice(0.9);
         }
       }
     }

@@ -1,4 +1,12 @@
 /**
+ * スコア画面で鳴らす声。`public/audio/voice/` に `voice01.mp3` から順に置く。
+ * **置いた分だけ自動で候補になる**ので、増やすのにコードは触らなくてよい。
+ * 起動時に有無だけ調べ、実際の読み込みは鳴らす直前に行う。
+ */
+const VOICE_MAX = 24;
+const voiceName = (i: number) => `voice${String(i).padStart(2, '0')}.mp3`;
+
+/**
  * 音声ファイルの効果音。`public/audio/sfx/` に置く。
  * 読み込めなければ、それぞれ合成音に落ちる。
  */
@@ -37,6 +45,7 @@ export class Sfx {
       this.setup(ctx, ctx.destination);
       void ctx.resume();
       this.loadSamples();
+      void this.findVoices();
     } catch {
       this.ctx = null;
     }
@@ -138,6 +147,68 @@ export class Sfx {
     src.connect(g).connect(this.master);
     src.start(t);
     src.stop(t + dur + 0.05);
+    return true;
+  }
+
+  /** スコア画面の声。置かれているファイル名 */
+  private voices: string[] = [];
+  private voiceBufs = new Map<string, AudioBuffer>();
+  private lastVoice = '';
+
+  /** 置かれている声のファイルを調べる。起動を止めないよう中身は読まない */
+  private async findVoices() {
+    const base = `${import.meta.env.BASE_URL}audio/voice/`;
+    const found = await Promise.all(
+      Array.from({ length: VOICE_MAX }, (_, i) => voiceName(i + 1)).map(async (n) => {
+        try {
+          const r = await fetch(base + n, { method: 'HEAD' });
+          const ct = r.headers.get('content-type') ?? '';
+          // 開発サーバーは無いパスに index.html を返すので型も見る
+          return r.ok && !ct.includes('text/html') ? n : null;
+        } catch {
+          return null;
+        }
+      })
+    );
+    this.voices = found.filter((n): n is string => n !== null);
+    if (this.voices.length) console.info(`voice: ${this.voices.length} 本みつかった`);
+    return this.voices;
+  }
+
+  /** 置かれている声の本数（検証用） */
+  get voiceCount() {
+    return this.voices.length;
+  }
+
+  /**
+   * 声を 1 本、無作為に鳴らす。
+   * 直前と同じものは避ける。置かれていなければ何もしない
+   */
+  async playVoice(delay = 0) {
+    if (this.muted || !this.ctx || !this.master || this.voices.length === 0) return false;
+    const pool = this.voices.length > 1 ? this.voices.filter((n) => n !== this.lastVoice) : this.voices;
+    const name = pool[Math.floor(Math.random() * pool.length)];
+    this.lastVoice = name;
+    let buf = this.voiceBufs.get(name);
+    if (!buf) {
+      try {
+        const res = await fetch(`${import.meta.env.BASE_URL}audio/voice/${name}`);
+        if (!res.ok) return false;
+        buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
+        this.voiceBufs.set(name, buf);
+      } catch {
+        return false;
+      }
+    }
+    if (this.muted) return false;
+    const t = this.ctx.currentTime + delay;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.9; // 声は聞き取れるように少し大きめ
+    src.connect(g).connect(this.master);
+    src.start(t);
+    src.stop(t + buf.duration + 0.05);
     return true;
   }
 
