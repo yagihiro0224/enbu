@@ -2,6 +2,9 @@
  * スコア画面で鳴らす声。`public/audio/voice/` に `voice01.mp3` から順に置く。
  * **置いた分だけ自動で候補になる**ので、増やすのにコードは触らなくてよい。
  * 起動時に有無だけ調べ、実際の読み込みは鳴らす直前に行う。
+ *
+ * `public/audio/voice/local/` に同じ名前で置くとそちらが優先される。
+ * local/ は公開されない（.gitignore）ので、手元だけで鳴らしたい音声はそこへ。
  */
 const VOICE_MAX = 24;
 const voiceName = (i: number) => `voice${String(i).padStart(2, '0')}.mp3`;
@@ -158,20 +161,26 @@ export class Sfx {
   /** 置かれている声のファイルを調べる。起動を止めないよう中身は読まない */
   private async findVoices() {
     const base = `${import.meta.env.BASE_URL}audio/voice/`;
+    // 開発サーバーは無いパスに index.html を返すので、型も見て弾く
+    const exists = async (path: string) => {
+      try {
+        const r = await fetch(base + path, { method: 'HEAD' });
+        const ct = r.headers.get('content-type') ?? '';
+        return r.ok && !ct.includes('text/html');
+      } catch {
+        return false;
+      }
+    };
     const found = await Promise.all(
       Array.from({ length: VOICE_MAX }, (_, i) => voiceName(i + 1)).map(async (n) => {
-        try {
-          const r = await fetch(base + n, { method: 'HEAD' });
-          const ct = r.headers.get('content-type') ?? '';
-          // 開発サーバーは無いパスに index.html を返すので型も見る
-          return r.ok && !ct.includes('text/html') ? n : null;
-        } catch {
-          return null;
-        }
+        // 手元だけの音声を先に見る
+        if (await exists(`local/${n}`)) return `local/${n}`;
+        return (await exists(n)) ? n : null;
       })
     );
     this.voices = found.filter((n): n is string => n !== null);
-    if (this.voices.length) console.info(`voice: ${this.voices.length} 本みつかった`);
+    const local = this.voices.filter((n) => n.startsWith('local/')).length;
+    if (this.voices.length) console.info(`voice: ${this.voices.length} 本みつかった（うち手元だけ ${local} 本）`);
     return this.voices;
   }
 

@@ -5,8 +5,7 @@ dist
 .shots
 # VRoid Studio のプロジェクトファイルは vroid/ に置く（公開サイトには含めない）
 
-# スコア画面の声。手元で遊ぶぶんの音声はここに置き、公開サイトには載せない。
-# 公開して差し支えない音声（自分で録った声や VOICEVOX）を配る場合は、
-# この行を消してから追加すること
-public/audio/voice/*.mp3
-public/audio/voice/*.wav
+# スコア画面の声のうち、手元だけで鳴らすもの。
+# public/audio/voice/local/ に置けば、リポジトリにも公開サイトにも乗らない。
+# 公開して差し支えない音声は public/audio/voice/ に直接置く
+public/audio/voice/local/

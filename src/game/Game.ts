@@ -346,7 +346,7 @@ export class Game {
         }
         // ?voicetest で、置かれている声の本数を出す
         if (q.has('voicetest')) {
-          setTimeout(() => console.info(`voicetest 見つかった本数=${this.sfx.voiceCount}`), 300);
+          setTimeout(() => console.info(`voicetest 見つかった本数=${this.sfx.voiceCount}`), 1500);
         }
         // ?bphase=2|3 で進化後の見た目を確かめる
         if (q.has('bphase')) {

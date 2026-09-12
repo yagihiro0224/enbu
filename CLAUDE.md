@@ -448,5 +448,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - ただし**手元で遊ぶぶんは私的利用の範囲**なので、`public/audio/voice/*.mp3` を `.gitignore` に入れてある。
   ローカルに置けば `npm run dev` で鳴り、リポジトリにも公開サイトにも乗らない。
   公開して差し支えない音声を配るときは、この行を消してから追加する
-- 代わりに `docs/voice_lines.md` に**台本 12 本**（二人の掛け合い。元ネタの空気だけ借りた新規の文面）と、
-  VOICEVOX での作り方を置いた。VOICEVOX を使うならクレジット表記が要る
+  「元の声を AI に聴かせて似た声を作る」案も断った。**セリフが新しくても、実在の役者本人の声を再現することになる**ため
+- 代わりに `docs/voice_lines.md` の台本 12 本を **VOICEVOX で作って同梱した**（2026-09-12）。
+  まひろ = 冥鳴ひまり（話者 14）、ちさと = 春日部つむぎ（話者 8）。合計 432KB、1 本 1.3〜3.6 秒
+  - 作り直しは `scripts/make_voices.py`。**VOICEVOX のエンジンを先に起動しておくこと**:
+    `AppData/Local/Microsoft/WinGet/Packages/HiroshibaKazuyuki.VOICEVOX_*/VOICEVOX/vv-engine/run.exe`
+    （`--host 127.0.0.1 --port 50021`）。起動に 20 秒ほどかかる。GUI は不要で HTTP だけで完結する
+  - 台本を変えるときは `scripts/make_voices.py` の `LINES` を直す。`docs/voice_lines.md` の表も合わせること
+  - **クレジット表記が規約で必要**。README に書いてある
+- `public/audio/voice/local/` は `.gitignore` 済み。**手元だけで鳴らしたい音声はここへ置く**（同じ名前なら優先される）。
+  公開して差し支えないものだけ `public/audio/voice/` に直接置く
