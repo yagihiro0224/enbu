@@ -34,7 +34,8 @@ const MAHIRO: FightStyle = {
     2: { total: 0.4, a0: 0.15, a1: 0.22, chain: 0.23, dmg: 10, poise: 14, lunge: 5.5, reach: 1.95, kind: 'punch', trail: 'fistR' },
     3: { total: 0.44, a0: 0.18, a1: 0.26, chain: 0.27, dmg: 13, poise: 20, lunge: 6.0, reach: 1.9, kind: 'punch', trail: 'fist' },
     4: { total: 0.5, a0: 0.2, a1: 0.3, chain: 0.32, dmg: 15, poise: 22, lunge: 5.0, reach: 2.4, kind: 'kick', trail: 'leg' },
-    5: { total: 0.9, a0: 0.42, a1: 0.58, chain: 0.9, dmg: 30, poise: 50, lunge: 7.5, reach: 2.8, kind: 'spin', trail: 'leg' },
+    // ジャンプ回し蹴りはその場で回る。前へ出ると敵を通り過ぎて当たらない（lunge 0）
+    5: { total: 0.9, a0: 0.42, a1: 0.58, chain: 0.9, dmg: 30, poise: 50, lunge: 0, reach: 2.8, kind: 'spin', trail: 'leg' },
   },
   pose: poseAttack,
   color: 0xff3a2a, hot: 0xff8a60, spark: 0xffb090,
@@ -63,11 +64,13 @@ const CHISATO: FightStyle = {
   color: 0xa040ff, hot: 0xd090ff, spark: 0xe8c0ff,
   hitstop: 0.7, shake: 0.6, punch: 0.5,
   sharp: true,
+  // 打撃の音はまひろと同じ（2026-09-12 ユーザー指示）。見た目の鋭さは色と軌跡で出す
   swing(sfx, kind) {
-    sfx.whooshSharp(kind === 'spin' ? 0.8 : kind === 'kick' ? 0.9 : 1.15);
+    sfx.whooshHeavy(kind === 'spin' ? 0.6 : kind === 'kick' ? 0.75 : 0.95);
   },
   hit(sfx, kind, heavy) {
-    sfx.sharpHit(kind === 'spin' ? 1.15 : 1, heavy);
+    if (heavy) sfx.heavyHit();
+    sfx.thud(kind === 'kick' || heavy ? 1.2 : 1);
   },
 };
 

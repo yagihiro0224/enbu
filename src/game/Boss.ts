@@ -103,6 +103,8 @@ export class Boss {
     this.rig.root.visible = true;
     this.rig.setFlash(0);
     this.rig.setWeaponGlow(0);
+    this.rig.setClothTint?.(null);
+    this.sparkTimer = 0;
     this.group.position.copy(this.pos);
     this.group.updateMatrixWorld(true);
     this.rig.resetSprings?.();
@@ -116,6 +118,23 @@ export class Boss {
   }
   private get speedMul() {
     return 1 + (this.phase - 1) * 0.18;
+  }
+  /**
+   * 進化ごとの強さの倍率。弾の数と威力の両方に掛ける。
+   * 第一 1.0 → 第二 1.3 → 最終 1.69（2026-09-12 ユーザー指示）
+   */
+  private get powerMul() {
+    return Math.pow(1.3, this.phase - 1);
+  }
+  /** 電気を出す位置。浮いているぶん高さを足して体にまとわせる */
+  private get sparkOrigin(): THREE.Vector3 {
+    return this.tmp2.set(this.pos.x, this.pos.y + this.rig.root.position.y + 0.15, this.pos.z);
+  }
+  /** 次に電気を出すまでの残り時間 */
+  private sparkTimer = 0;
+  /** 進化後にまとう電気の色。第二形態は青白、最終形態は金 */
+  private get sparkColor() {
+    return this.phase >= 3 ? 0xffd070 : 0x9fe0ff;
   }
 
   stagger(sec: number, ctx: Ctx) {
@@ -152,6 +171,11 @@ export class Boss {
     else if (this.phase === 2 && this.hp <= this.maxHp * 0.3) this.enterPhase(3, ctx);
   }
 
+  /** 検証用に好きな形態へ進化させる（?bphase=） */
+  forcePhase(p: number, ctx: Ctx) {
+    this.enterPhase(p, ctx);
+  }
+
   private enterPhase(p: number, ctx: Ctx) {
     this.phase = p;
     this.state = 'phase';
@@ -167,6 +191,13 @@ export class Boss {
     ctx.fx.pillar(this.pos, 0xc060ff, 9, 1.2, 0.9);
     ctx.fx.ring(this.pos, 0xff70d0, 9, 0.8);
     ctx.fx.flash(this.center, 0xe0a0ff, 6, 0.4);
+    // 進化の合図として全身に電気を走らせる（当たり判定はない）
+    ctx.fx.spark(this.sparkOrigin, this.sparkColor, { count: 30, radius: 0.8, height: 1.9, dur: 0.8 });
+    // 服を染める。第二形態は赤、最終形態は金
+    // 第二形態は赤、最終形態は金。生地が暗いので金は強めに光らせる
+    // 生地が黒いので、色を掛けるだけでは染まらない。発光を足して見せている。
+    // 金は黒地だと茶色に沈むため、赤より明るく薄い色を強めに光らせる
+    this.rig.setClothTint?.(p >= 3 ? 0xffc94a : 0xff2a1e, p >= 3 ? 5.5 : 2.2);
   }
 
   private clearBullets(ctx: Ctx) {
@@ -194,12 +225,12 @@ export class Boss {
   /** 弾の密度。1 で全弾、0.1 で 10 発に 1 発（パターンの並びを保ったまま間引く） */
   private fireAcc = 0;
   private fire(ctx: Ctx, from: THREE.Vector3, dir: THREE.Vector3, speed: number, o: { kind?: 0 | 1 | 2; r?: number; color?: number; damage?: number; life?: number; homing?: number; gravity?: number; bounce?: boolean }) {
-    this.fireAcc += BULLET_DENSITY;
+    this.fireAcc += BULLET_DENSITY * this.powerMul;
     if (this.fireAcc < 1) return null;
     this.fireAcc -= 1;
     return ctx.bullets.spawn({
       pos: from, vel: dir.clone().normalize().multiplyScalar(speed * this.speedMul), owner: 'boss',
-      kind: o.kind ?? 0, r: o.r ?? 0.3, color: o.color ?? 0xff5fb0, damage: o.damage ?? 10, life: o.life ?? 8,
+      kind: o.kind ?? 0, r: o.r ?? 0.3, color: o.color ?? 0xff5fb0, damage: (o.damage ?? 10) * this.powerMul, life: o.life ?? 8,
       homing: o.homing, gravity: o.gravity, bounce: o.bounce,
     });
   }
@@ -431,7 +462,7 @@ export class Boss {
         this.vel.copy(this.lungeDir).multiplyScalar(24 * k);
         if (this.st < 0.06) ctx.particles.emit(this.center, { color: 0xff40a0, count: 3, speed: 1, size: 0.3, life: 0.3 });
         if (!this.lungeHit && this.st < 0.4 && dist < 1.5 + player.radius) {
-          if (player.takeDamage(22, ctx, this.pos)) this.lungeHit = true;
+          if (player.takeDamage(22 * this.powerMul, ctx, this.pos)) this.lungeHit = true;
         }
         if (this.st >= 0.5) { this.state = 'idle'; this.st = 0; }
       } else {
@@ -464,6 +495,18 @@ export class Boss {
       }
     } else if (this.state !== 'dead') {
       this.vel.multiplyScalar(Math.max(0, 1 - dt * 5));
+    }
+
+    // 進化後は電気をまとい続ける。見た目だけで当たり判定はない
+    if (this.phase >= 2 && this.alive) {
+      this.sparkTimer -= dt;
+      if (this.sparkTimer <= 0) {
+        this.sparkTimer = this.phase >= 3 ? 0.16 : 0.26;
+        ctx.fx.spark(this.sparkOrigin, this.sparkColor, {
+          count: this.phase >= 3 ? 6 : 4,
+          radius: 0.5, height: 1.5, dur: 0.22,
+        });
+      }
     }
 
     // 移動

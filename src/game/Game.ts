@@ -304,6 +304,11 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?bphase=2|3 で進化後の見た目を確かめる
+        if (q.has('bphase')) {
+          this.boss.forcePhase(Math.max(2, Math.min(3, Number(q.get('bphase')) || 2)), this.ctx);
+          for (let i = 0; i < Number(q.get('bf') ?? 40); i++) this.step(1 / 60);
+        }
         // 戦闘中の状態でボタンの当たりを調べる
         if (q.has('hittest')) this.hitTest();
         // ?win=打撃数 でリザルト画面まで一気に進める（?dmg を付けると被弾ありになる）

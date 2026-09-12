@@ -222,6 +222,63 @@ export class Fx {
     });
   }
 
+  /**
+   * 電気のような火花。**見た目だけで当たり判定はない**。
+   * 折れ線を何本か置き、数フレームごとに形を作り直して瞬かせる。
+   */
+  spark(pos: THREE.Vector3, color: THREE.ColorRepresentation, o: { count?: number; radius?: number; height?: number; dur?: number } = {}) {
+    const count = o.count ?? 8;
+    const radius = o.radius ?? 0.9;
+    const height = o.height ?? 1.6;
+    const dur = o.dur ?? 0.3;
+    const SEG = 6; // 1 本あたりの折れ点
+    const verts = count * (SEG - 1) * 2; // LineSegments は 2 点で 1 区間
+    const arr = new Float32Array(new ArrayBuffer(verts * 3 * 4));
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    const mat = new THREE.LineBasicMaterial({
+      color: this.hdr(color, 2.4), toneMapped: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const seg = new THREE.LineSegments(geo, mat);
+    seg.position.copy(pos);
+
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), p = new THREE.Vector3();
+    const build = () => {
+      let k = 0;
+      for (let i = 0; i < count; i++) {
+        // 体の周りの適当な 2 点を結ぶ
+        const th = Math.random() * Math.PI * 2;
+        const r = radius * (0.55 + Math.random() * 0.6);
+        const y = Math.random() * height;
+        a.set(Math.cos(th) * r, y, Math.sin(th) * r);
+        const th2 = th + (Math.random() - 0.5) * 2.2;
+        const r2 = radius * (0.55 + Math.random() * 0.7);
+        b.set(Math.cos(th2) * r2, y + (Math.random() - 0.5) * height * 0.7, Math.sin(th2) * r2);
+        // 途中の点を折り曲げる
+        let px = a.x, py = a.y, pz = a.z;
+        for (let j = 1; j < SEG; j++) {
+          const t = j / (SEG - 1);
+          p.lerpVectors(a, b, t);
+          const j2 = j === SEG - 1 ? 0 : 0.28 * radius;
+          const nx = p.x + (Math.random() - 0.5) * j2;
+          const ny = p.y + (Math.random() - 0.5) * j2;
+          const nz = p.z + (Math.random() - 0.5) * j2;
+          arr[k++] = px; arr[k++] = py; arr[k++] = pz;
+          arr[k++] = nx; arr[k++] = ny; arr[k++] = nz;
+          px = nx; py = ny; pz = nz;
+        }
+      }
+      geo.attributes.position.needsUpdate = true;
+    };
+    build();
+
+    let frame = 0;
+    this.add(seg, dur, (_o, t) => {
+      if (++frame % 3 === 0) build(); // 瞬き
+      mat.opacity = (1 - t) * (0.7 + Math.random() * 0.3);
+    });
+  }
+
   /** 魔法陣メッシュ。呼び出し側が visible と scale を制御する */
   magicCircle(size = 3.2): THREE.Mesh {
     const mat = new THREE.MeshBasicMaterial({ map: this.circleTex, color: new THREE.Color(1.6, 1.2, 2.0), toneMapped: false, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide });

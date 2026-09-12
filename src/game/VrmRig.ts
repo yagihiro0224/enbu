@@ -41,6 +41,11 @@ export async function tryLoadVrm(url: string, opts: { weapon?: 'staff' } = {}): 
   root.scale.setScalar(1.6 / Math.max(0.5, height));
   const hips = get('hips');
 
+  // 服の色を操作できるマテリアル。
+  // 生地が暗いと色を掛けても染まって見えないので、発光も一緒に動かす。
+  // 発光は setFlash が毎フレーム base へ戻すため、その base 自体を書き換える
+  type Tinted = THREE.Material & { color?: THREE.Color; shadeColorFactor?: THREE.Color };
+  const cloth: { m: Tinted; base: THREE.Color; shade: THREE.Color | null; emi: { base: THREE.Color; m: Emissive } | null }[] = [];
   // 発光を操作できるマテリアルを集める
   type Emissive = THREE.Material & { emissive: THREE.Color; emissiveIntensity: number };
   const mats: { m: Emissive; base: THREE.Color; baseI: number }[] = [];
@@ -51,9 +56,22 @@ export async function tryLoadVrm(url: string, opts: { weapon?: 'staff' } = {}): 
     for (const m of list) {
       const e = m as Emissive;
       if (e.emissive instanceof THREE.Color) mats.push({ m: e, base: e.emissive.clone(), baseI: e.emissiveIntensity ?? 1 });
+      // 服だけを染められるよう、名前に CLOTH を含むマテリアルを覚えておく。
+      // VRoid の命名は N00_010_01_Onepiece_00_CLOTH_01 のような形
+      const c = m as Tinted;
+      if (/CLOTH/i.test(m.name) && c.color instanceof THREE.Color) {
+        const rec = mats.find((x) => x.m === (m as unknown as Emissive)) ?? null;
+        cloth.push({ m: c, base: c.color.clone(), shade: c.shadeColorFactor?.clone() ?? null, emi: rec });
+      }
     }
   });
 
+
+  // ?clothdbg で、服として掴めたマテリアルを数える
+  if (location.search.includes('clothdbg')) {
+    console.info(`clothdbg ${url}: cloth=${cloth.length} emissive=${cloth.filter((c) => c.emi).length} 全体=${mats.length}`);
+    for (const c of cloth) console.info(`clothdbg  ${c.m.name} base=#${c.base.getHexString()} emi=${c.emi ? 'あり' : 'なし'}`);
+  }
 
   // 指の骨（T ポーズで指は ±X 方向、掌は下向き）。握る = Z 回転で掌側（-Y）へ曲げる
   const fingerBones = (side: 'left' | 'right') => {
@@ -122,6 +140,31 @@ export async function tryLoadVrm(url: string, opts: { weapon?: 'staff' } = {}): 
     },
     resetSprings() {
       vrm.springBoneManager?.reset();
+    },
+    setClothTint(color, amount = 0.85) {
+      const tint = color === null ? null : new THREE.Color(color);
+      for (const c of cloth) {
+        if (!c.m.color) continue;
+        if (tint === null) {
+          c.m.color.copy(c.base);
+          if (c.m.shadeColorFactor && c.shade) c.m.shadeColorFactor.copy(c.shade);
+          if (c.emi) { c.emi.base.setRGB(0, 0, 0); c.emi.m.emissive.copy(c.emi.base); }
+        } else {
+          // 生地の色を混ぜる割合は 1 まで。
+          // それ以上の amount は「掛ける明るさ」になり、黒い生地を持ち上げて色を見せる
+          const k = Math.min(1, amount);
+          c.m.color.copy(c.base).lerp(tint, k).multiplyScalar(Math.max(1, amount));
+          if (c.m.shadeColorFactor && c.shade) {
+            c.m.shadeColorFactor.copy(c.shade).lerp(tint, k * 0.8).multiplyScalar(Math.max(1, amount * 0.7));
+          }
+          // 暗い生地でも色が分かるように光らせる
+          if (c.emi) {
+            c.emi.base.copy(tint).multiplyScalar(0.3 * Math.min(1.6, amount));
+            c.emi.m.emissive.copy(c.emi.base);
+            c.emi.m.emissiveIntensity = 1;
+          }
+        }
+      }
     },
     setFist(l, r) {
       curl(fL, 1, l);

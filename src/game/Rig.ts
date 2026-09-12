@@ -32,6 +32,11 @@ export interface Rig {
   setFlash(v: number): void;
   /** 武器の発光 0..1 */
   setWeaponGlow(v: number): void;
+  /**
+   * 服の色を染める。null で元に戻す。
+   * 名前に CLOTH を含むマテリアルだけが対象（肌・髪・顔は変えない）。
+   */
+  setClothTint?(color: number | null, amount?: number): void;
   /** 指を握る 0..1（指の骨がある VRM のみ有効） */
   setFist?(left: number, right: number): void;
   /**
