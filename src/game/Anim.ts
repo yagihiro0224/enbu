@@ -549,6 +549,33 @@ export function poseVictory(t: number, sharp: boolean): Pose {
 }
 
 /** 隣で拍手する。手を胸の前で打ち合わせ、軽く弾む */
+/**
+ * 倒れた相棒の隣にしゃがみ、手を取る姿勢（負けたときの相棒）。
+ * 相棒は画面から見て右隣に寝ているので、**左手（+X 側）を下へ伸ばして握る**。
+ * 息づかいでわずかに上下させる
+ */
+export function poseKneelHold(t: number): Pose {
+  const breathe = Math.sin(t * 1.5) * 0.022;
+  const spine: Vec3 = [0.42 + breathe, 0.12, 0];
+  return {
+    ...arms(
+      {
+        // 左手は寝ている相棒の手へ。右手は自分の膝の上
+        L: [[0.86, -0.42, 0.16], [0.56, -0.79, 0.06]],
+        R: [[-0.32, -0.62, 0.42], [-0.16, -0.9, 0.28]],
+      },
+      spine
+    ),
+    hipsY: -0.74,
+    spine,
+    head: [0.28 - breathe, -0.18, 0],
+    upperLegL: [-1.55, 0, -0.12],
+    lowerLegL: [1.95, 0, 0],
+    upperLegR: [-1.25, 0, 0.14],
+    lowerLegR: [2.05, 0, 0],
+  };
+}
+
 export function poseClap(t: number): Pose {
   const c = Math.abs(Math.sin(t * 7.5)); // 0 で手が合う
   const spine: Vec3 = [0.06, 0, 0];

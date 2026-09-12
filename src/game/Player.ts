@@ -60,6 +60,8 @@ export class Player {
   damaged = false;
   /** 必殺ゲージ 0..1。満タンで合体必殺技が撃てる */
   superGauge = 0;
+  /** 必殺技を当てた回数。スコアに出す */
+  superHits = 0;
   /** 前フレームの向き。飛んだら揺れ物を組み直すのに使う */
   private lastHeading = 0;
   private runCycle = 0;
@@ -123,6 +125,7 @@ export class Player {
     this.meleeHits = this.meleeParries = this.bulletParries = 0;
     this.damaged = false;
     this.superGauge = 0;
+    this.superHits = 0;
     this.comboTimer = 0;
     this.flash = this.glow = 0;
     this.rig.setFlash(0);

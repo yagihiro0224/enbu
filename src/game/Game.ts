@@ -19,7 +19,7 @@ import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
 
-import { Animator, poseCarry, poseRam, poseClap, poseIdle } from './Anim';
+import { Animator, poseCarry, poseRam, poseClap, poseKneelHold } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -369,6 +369,7 @@ export class Game {
           pl.meleeParries = Number(q.get('mp') ?? 3);
           pl.bulletParries = Number(q.get('bp') ?? 7);
           pl.maxCombo = Number(q.get('mc') ?? 18);
+          pl.superHits = Number(q.get('sh') ?? 0);
           pl.damaged = q.has('dmg');
           this.playTime = Number(q.get('sec') ?? 52);
           this.finish(!q.has('lose'));
@@ -736,6 +737,7 @@ export class Game {
       this.particles.emit(c, { color: 0xff6a3a, count: 70, speed: 10, size: 0.3, life: 1.3 });
       this.ui.flash(0.55);
       this.ui.showBanner('頭突き！', '#ffe08a', 1.4);
+      this.player.superHits++;
       // 必ず当たる。大きく削って無防備にする
       this.boss.takeDamage(SUP_DAMAGE, 0, this.ctx);
       if (this.boss.alive) this.boss.stagger(SUP_STAGGER, this.ctx);
@@ -1023,6 +1025,7 @@ export class Game {
       noDamage: !this.player.damaged,
       seconds: this.playTime,
       maxCombo: this.player.maxCombo,
+      superHits: this.player.superHits,
     });
     // 勝ったときだけランキングに載せる
     if (win) void this.submitScore();
@@ -1050,9 +1053,16 @@ export class Game {
     if (!rig || rig === this.player.rig) return;
     // カメラから見た右方向。相棒は画面の左側（スコア面板の反対側）に置く
     const right = new THREE.Vector3(this.victoryDir.z, 0, -this.victoryDir.x);
-    rig.root.position.copy(this.player.pos).addScaledVector(right, -0.78).addScaledVector(this.victoryDir, -0.12);
-    rig.root.rotation.y = this.player.heading + 0.22;
-    rig.setFist?.(0.25, win ? 1 : 0.3);
+    if (win) {
+      rig.root.position.copy(this.player.pos).addScaledVector(right, -0.78).addScaledVector(this.victoryDir, -0.12);
+      rig.root.rotation.y = this.player.heading + 0.22;
+    } else {
+      // 倒れている相棒の上半身の横へ寄り、体を向けてしゃがむ。
+      // 倒れた体は腰から後ろ（-victoryDir）へ伸びている
+      rig.root.position.copy(this.player.pos).addScaledVector(right, -0.56).addScaledVector(this.victoryDir, -0.42);
+      rig.root.rotation.y = this.player.heading + 0.52;
+    }
+    rig.setFist?.(win ? 0.25 : 0.15, win ? 1 : 0.15);
     castShadows(rig.root);
     this.scene.add(rig.root);
     this.partner = { rig, anim: new Animator(rig), t: 0, win };
@@ -1133,7 +1143,7 @@ export class Game {
       this.partner.t += dt;
       // 少し遅れて拍手を始める
       const pt = Math.max(0, this.partner.t - 0.5);
-      this.partner.anim.apply(this.partner.win ? poseClap(pt) : poseIdle(this.partner.t), 12, dt);
+      this.partner.anim.apply(this.partner.win ? poseClap(pt) : poseKneelHold(this.partner.t), 10, dt);
       this.partner.rig.update(dt);
     }
     this.boss.update(dt, this.ctx, playing);
@@ -1240,9 +1250,17 @@ export class Game {
       const mid = this.partner
         ? new THREE.Vector3().addVectors(pl.pos, this.partner.rig.root.position).multiplyScalar(0.5)
         : pl.pos.clone();
-      const dist = wide ? 3.6 : 4.0;
-      desired = new THREE.Vector3(mid.x + d.x * dist, pl.pos.y + 1.05, mid.z + d.z * dist);
-      look = new THREE.Vector3(mid.x, pl.pos.y + (wide ? 0.9 : 0.25), mid.z)
+      // 負けは二人とも低い位置（片方は倒れている）ので、寄って低く構える
+      // 負けは二人とも地面の近く（片方は倒れている）ので、**上から見下ろして**
+      // 縦画面の上半分に二人を収める
+      // 負けは二人ともしゃがむ・倒れるで背が低い。**思い切って寄らないと小さく写る**
+      // 負けは二人ともしゃがむ・倒れるで背が低いので、寄って低く構える。
+      // **縦画面は下半分がスコア面板なので、収まるのは上半身まで**。全身を見せたいときは横画面
+      const dist = this.overWin ? (wide ? 3.6 : 4.0) : (wide ? 2.4 : 2.9);
+      const camY = this.overWin ? 1.05 : 0.72;
+      const lookY = this.overWin ? (wide ? 0.9 : 0.25) : (wide ? 0.35 : 0.08);
+      desired = new THREE.Vector3(mid.x + d.x * dist, pl.pos.y + camY, mid.z + d.z * dist);
+      look = new THREE.Vector3(mid.x, pl.pos.y + lookY, mid.z)
         .addScaledVector(right, wide ? 0.8 : 0);
     } else if (this.state === 'title') {
       const a = this.time * 0.15;

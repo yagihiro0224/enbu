@@ -13,6 +13,8 @@ export interface ScoreInput {
   seconds: number;
   /** 最大コンボ（表示のみ） */
   maxCombo: number;
+  /** 必殺技を当てた回数 */
+  superHits: number;
 }
 
 export interface ScoreLine {
@@ -48,6 +50,12 @@ export const HIT_PT = 300_000;
 export const MELEE_PARRY_PT = 500_000;
 export const BULLET_PARRY_PT = 100_000;
 export const NO_DAMAGE_PT = 10_000_000;
+/**
+ * 必殺技を当てた 1 回ぶん。
+ * 必殺技は体力を 240 削るので、その分だけ打撃の回数が減って損になっていた。
+ * 使う理由を作るための配点（2026-09-13 ユーザー了承）
+ */
+export const SUPER_PT = 2_000_000;
 
 /** 称号のしきい値（2026-09-11 ユーザー確定） */
 export const RANKS: (Rank & { min: number })[] = [
@@ -70,11 +78,15 @@ export function comboMult(maxCombo: number): number {
   return 1 + Math.min(maxCombo, MULT_CAP_COMBO) / 40;
 }
 
-/** クリアタイムのボーナス */
+/**
+ * クリアタイムのボーナス。
+ * **2026-09-13 に 10 倍へ引き上げた**。打撃 1 発が 30 万なので、
+ * 元の 100 万では「弱い攻撃を当て続けて長く戦う」ほうが得になり、速攻が損をしていた
+ */
 function timeBonus(sec: number): { pt: number; label: string } {
-  if (sec <= 60) return { pt: 1_000_000, label: '1分以内' };
-  if (sec <= 120) return { pt: 500_000, label: '2分以内' };
-  if (sec <= 180) return { pt: 200_000, label: '3分以内' };
+  if (sec <= 60) return { pt: 10_000_000, label: '1分以内' };
+  if (sec <= 120) return { pt: 5_000_000, label: '2分以内' };
+  if (sec <= 180) return { pt: 2_000_000, label: '3分以内' };
   return { pt: 0, label: '3分超' };
 }
 
@@ -96,6 +108,11 @@ export function computeScore(i: ScoreInput): ScoreResult {
     label: '弾をパリィ',
     detail: `${man(BULLET_PARRY_PT)} × ${i.bulletParries}`,
     points: BULLET_PARRY_PT * i.bulletParries,
+  });
+  lines.push({
+    label: '必殺技',
+    detail: `${man(SUPER_PT)} × ${i.superHits}`,
+    points: SUPER_PT * i.superHits,
   });
   const t = timeBonus(i.seconds);
   lines.push({
