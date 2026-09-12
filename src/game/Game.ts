@@ -645,10 +645,9 @@ export class Game {
     carrier.root.position.set(0, 0, 0);
     carrier.root.rotation.set(0, 0, 0);
     group.add(carrier.root);
-    // 抱えられる側は横倒しにして胸の前へ。頭が前（+Z）を向く
-    // 抱える手のすぐ先に置く。離すと浮いて見える
-    rammer.root.position.set(0, 1.06, 0.08);
-    rammer.root.rotation.set(Math.PI / 2, 0, 0);
+    // 抱えられる側は横倒しにして**肩の上へ**。足は後ろ、頭だけ前へ出る（+Z が進行方向）
+    rammer.root.position.set(-0.16, 1.34, -0.52);
+    rammer.root.rotation.set(Math.PI / 2, 0, -0.12);
     group.add(rammer.root);
     castShadows(carrier.root);
     castShadows(rammer.root);
