@@ -166,6 +166,10 @@ export class Game {
     // ♪ ボタンからも呼ばれるので、戦闘中に濃さを戻してしまわないよう場面を見る
     this.ui.onGesture = () => { this.ensureMusic(); if (this.state === 'title') this.setMusicLv(0); };
     this.ui.onMusicToggle = (on) => { for (const m of this.musicAll) m.setMuted(!on); };
+    // 全画面ボタン。触れる端末だけに出す
+    this.ui.onFullscreen = () => this.toggleFullscreen();
+    this.ui.setFullscreenButton(this.isTouchDevice);
+    document.addEventListener('fullscreenchange', () => this.ui.setFullscreenState(!!document.fullscreenElement));
     // 名前とランキング
     this.ui.setName(this.ranking.name);
     this.ui.onName = (v) => { this.ranking.name = v; };
@@ -948,18 +952,39 @@ export class Game {
    * **操作の中でしか要求できない**ので、開始ボタンの流れから呼ぶこと。
    * iPhone の Safari は全画面に対応していないので何も起きない（ホーム画面に追加すれば manifest 側で全画面になる）
    */
-  private enterFullscreenOnPhone() {
-    // 触れる端末かどうかで判定する。`pointer: coarse` だけだと外れる端末がある
-    const touch = navigator.maxTouchPoints > 0 || 'ontouchstart' in window || matchMedia('(pointer: coarse)').matches;
-    if (!touch) return;
+  /** 触れる端末か。`pointer: coarse` だけだと外れる端末がある */
+  private get isTouchDevice() {
+    return navigator.maxTouchPoints > 0 || 'ontouchstart' in window || matchMedia('(pointer: coarse)').matches;
+  }
+
+  /**
+   * 全画面にする。**操作の中でしか要求できない**ので、必ず操作の流れから呼ぶこと。
+   * 断られた理由は console に出す（iPhone の Safari は対応していないので必ず失敗する）
+   */
+  private requestFullscreen() {
     if (document.fullscreenElement) return;
     const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
     try {
       const p = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
-      void p?.catch(() => { /* 断られても遊べるので黙って続ける */ });
-    } catch {
-      /* 対応していない端末では何もしない */
+      void p?.catch((err: unknown) => console.info(`全画面にできなかった: ${String(err)}`));
+    } catch (err) {
+      console.info(`全画面に対応していない: ${String(err)}`);
     }
+  }
+
+  /** 全画面ボタン。入っていれば出る、出ていれば入る */
+  private toggleFullscreen() {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen?.().catch(() => { /* 出られなくても続ける */ });
+      return;
+    }
+    this.requestFullscreen();
+  }
+
+  /** スマホのときだけ自動で全画面にする */
+  private enterFullscreenOnPhone() {
+    if (!this.isTouchDevice) return;
+    this.requestFullscreen();
   }
 
   private beginPlay() {

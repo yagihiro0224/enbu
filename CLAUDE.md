@@ -187,6 +187,10 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   - 触れる端末の判定は `navigator.maxTouchPoints > 0 || 'ontouchstart' in window || pointer: coarse`。
     **`pointer: coarse` だけだと外れる端末がある**（効かないと指摘されて広げた）
   - 最初に触れたときの待ち受けは、音が開けているかに関わらず必ず張る
+  - **自動の要求は断られることがある**ので、`#fs`（⛶）の全画面ボタンを ♪ の隣に置いた（触れる端末だけ表示）。
+    押せば確実に切り替わる。全画面中は表示が ⤢ に変わる。断られた理由は console に出す
+  - **HTML は 10 分キャッシュされる**（GitHub Pages の `Cache-Control: max-age=600`）。
+    直したのに変わらないときは `?v=2` のような印を付けて開いてもらう
   - **iPhone の Safari は全画面に対応していない**ので何も起きない。ホーム画面に追加して起動すれば manifest の `display: fullscreen` が効く
   - 画面の向きのロックは引き続き行わない。
   なお `public/manifest.webmanifest` の `display: fullscreen` はホーム画面に追加して起動したときだけ効くもので、プレイ中の切り替えとは別物。

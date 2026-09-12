@@ -327,6 +327,15 @@ const CSS = `
   #title .hint, #audiohint { display: none; }
 }
 
+/* 全画面ボタン。触れる端末でだけ出す（パソコンでは不要） */
+#fs { z-index: 5; position: absolute; right: calc(max(14px, env(safe-area-inset-right)) + 46px);
+  top: max(12px, env(safe-area-inset-top)); pointer-events: auto; display: none;
+  width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4);
+  background: rgba(40,10,25,0.5); color: #fff; font-size: 15px; line-height: 1; font-family: inherit;
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+#fs.show { display: block; }
+#fs:active { transform: scale(0.92); }
+
 #music { z-index: 5; position: absolute; right: max(14px, env(safe-area-inset-right)); top: max(12px, env(safe-area-inset-top)); pointer-events: auto;
   width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4); background: rgba(40,10,25,0.5);
   color: #fff; font-size: 16px; line-height: 1; font-family: inherit; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); transition: opacity 0.2s; }
@@ -404,6 +413,7 @@ export class UI {
       <div id="banner"></div>
       <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・U 必殺・Q 交代</div>
       <button id="music" title="BGM">♪</button>
+      <button id="fs" title="全画面">⛶</button>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">
@@ -503,6 +513,8 @@ export class UI {
     }
     this.startBtn = q('#startbtn');
     this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(this.selected); });
+    this.fsBtn = q('#fs');
+    this.fsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onFullscreen(); });
     this.musicBtn = q('#music');
     this.musicBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -642,6 +654,14 @@ export class UI {
   setResultNote(text: string) {
     this.resRankBox.innerHTML = `<div class="rank-lose">${esc(text)}</div>`;
   }
+
+  private fsBtn!: HTMLElement;
+  /** 全画面ボタンが押された */
+  onFullscreen: () => void = () => {};
+  /** 全画面ボタンを出すか（触れる端末のみ） */
+  setFullscreenButton(v: boolean) { this.fsBtn?.classList.toggle('show', v); }
+  /** 全画面かどうかで見た目を変える */
+  setFullscreenState(on: boolean) { if (this.fsBtn) this.fsBtn.textContent = on ? '⤢' : '⛶'; }
 
   private musicBtn!: HTMLElement;
   /** BGM を鳴らすか。localStorage に覚える */
