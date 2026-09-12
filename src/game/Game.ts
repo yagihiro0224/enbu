@@ -14,12 +14,12 @@ import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
-import { Ranking, cleanName, isReservedName, isAdmin, type Entry } from './Rank';
+import { Ranking, cleanName, type Entry } from './Rank';
 import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
 
-import { Animator, poseClap } from './Anim';
+import { Animator, poseCarry, poseRam, poseClap } from './Anim';
 import type { Ctx } from './Ctx';
 import { damp, rand } from './util';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
@@ -35,6 +35,18 @@ const FOV = 50;
 type GState = 'title' | 'play' | 'over';
 
 /** 影を落とす設定。輪郭線用の裏面メッシュは除く */
+/**
+ * 合体必殺技の時間割（秒）。
+ * 見せ場 → 突進 → 戻り。合計 3.3 秒ほど
+ */
+const SUP_CUTIN = 1.0;
+const SUP_DASH = 0.75;
+const SUP_AFTER = 1.2;
+/** 頭突きの威力。敵の体力 800 に対して約 3 割 */
+const SUP_DAMAGE = 240;
+/** 当てたあと、敵が無防備になる時間 */
+const SUP_STAGGER = 3.2;
+
 function castShadows(root: THREE.Object3D) {
   root.traverse((o) => {
     const m = o as THREE.Mesh;
@@ -155,15 +167,7 @@ export class Game {
     this.ui.onMusicToggle = (on) => { for (const m of this.musicAll) m.setMuted(!on); };
     // 名前とランキング
     this.ui.setName(this.ranking.name);
-    this.ui.onName = (v) => {
-      // 管理者を名乗れるのは解錠した端末だけ
-      if (isReservedName(v) && !isAdmin()) {
-        this.ui.rejectName('「管理者」は利用できない文言だよ。');
-        this.ranking.name = '';
-        return;
-      }
-      this.ranking.name = v;
-    };
+    this.ui.onName = (v) => { this.ranking.name = v; };
     this.ui.onRankOpen = () => void this.openRanking();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
@@ -310,10 +314,6 @@ export class Game {
     }
     // ?audiodbg で音の状態を画面に出す。「BGM が聞こえない」ときの切り分け用
     if (q.has('audiodbg')) this.showAudioDebug();
-    // ?nametest で、使えない名前を入れたときの見た目を確かめる
-    if (q.has('nametest')) {
-      setInterval(() => { this.ui.setName('管理者'); this.ui.onName('管理者'); }, 900);
-    }
     if (q.has('bot')) this.input.bot = true;
     // ?hittest 単体ならタイトル画面の状態を調べる
     if (q.has('hittest') && !q.has('t') && !q.has('autostart')) setTimeout(() => this.hitTest(), 30);
@@ -327,6 +327,12 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?super で必殺技を撃たせ、?spf=コマ数 だけ進めて止める
+        if (q.has('super')) {
+          this.player.superGauge = 1;
+          this.startSuper();
+          for (let i = 0; i < Number(q.get('spf') ?? 60); i++) this.step(1 / 60);
+        }
         // ?shot で射を 1 発撃たせ、?sf=コマ数 だけ進めて止める
         if (q.has('shot')) {
           this.player.debugShoot(this.ctx);
@@ -444,6 +450,23 @@ export class Game {
   private swapCd = 0;
   /** 勝利演出: 隣で拍手する相棒 */
   private partner: { rig: Rig; anim: Animator; t: number } | null = null;
+  /**
+   * 合体必殺技「スーパー！まひろ頭突き！」。
+   * ちさとがまひろを抱えて頭から突っ込む。**この間ボスは何もできず、必ず当たる**
+   */
+  private sup: {
+    t: number;
+    hit: boolean;
+    group: THREE.Group;
+    carrier: Rig;   // ちさと
+    rammer: Rig;    // まひろ
+    carrierAnim: Animator;
+    rammerAnim: Animator;
+    from: THREE.Vector3;
+    to: THREE.Vector3;
+    dir: THREE.Vector3;
+    yaw: number;
+  } | null = null;
   private victoryDir = new THREE.Vector3(0, 0, 1);
   private score: ScoreResult | null = null;
 
@@ -508,10 +531,8 @@ export class Game {
   /** クリアしたスコアをランキングに登録し、リザルトに順位を出す */
   private async submitScore() {
     if (!this.score) return;
-    const typed = this.ui.enteredName || this.ranking.name;
-    const name = isReservedName(typed) && !isAdmin() ? '' : typed;
     const entry: Entry = {
-      name: cleanName(name),
+      name: cleanName(this.ui.enteredName || this.ranking.name),
       score: this.score.total,
       rank: this.score.rank.name,
       char: CHARS[this.current].name,
@@ -579,6 +600,145 @@ export class Game {
         `声: ${this.sfx.voiceCount}本`,
       ].join('\n');
     }, 400);
+  }
+
+  /** 必殺技が撃てるか */
+  private get canSuper() {
+    return this.state === 'play' && this.player.superReady && !this.sup && this.boss.alive
+      && !!this.rigs.mahiro && !!this.rigs.chisato && this.rigs.mahiro !== this.rigs.chisato;
+  }
+
+  /** 合体必殺技を始める。二人を場に出し、ボスを止める */
+  private startSuper() {
+    const carrier = this.rigs.chisato;
+    const rammer = this.rigs.mahiro;
+    if (!carrier || !rammer) return;
+    this.player.spendSuper();
+    this.ui.setSuper(0);
+    this.input.setSuperReady(false);
+    this.input.enabled = false;
+    this.input.reset();
+    this.boss.freeze(true, this.ctx);
+
+    // 突っ込む向きは、いまの立ち位置からボスへ
+    const from = this.player.pos.clone();
+    const to = this.boss.pos.clone();
+    const dir = new THREE.Vector3(to.x - from.x, 0, to.z - from.z);
+    if (dir.lengthSq() < 1e-4) dir.set(0, 0, 1);
+    dir.normalize();
+    const yaw = Math.atan2(dir.x, dir.z);
+    // ぶつかる手前で止める
+    const stop = to.clone().addScaledVector(dir, -(this.boss.radius + 0.9));
+
+    const group = new THREE.Group();
+    group.position.copy(from);
+    group.rotation.y = yaw;
+    // 抱える側は原点に立つ
+    carrier.root.position.set(0, 0, 0);
+    carrier.root.rotation.set(0, 0, 0);
+    group.add(carrier.root);
+    // 抱えられる側は横倒しにして胸の前へ。頭が前（+Z）を向く
+    // 抱える手のすぐ先に置く。離すと浮いて見える
+    rammer.root.position.set(0, 1.06, 0.08);
+    rammer.root.rotation.set(Math.PI / 2, 0, 0);
+    group.add(rammer.root);
+    castShadows(carrier.root);
+    castShadows(rammer.root);
+    this.scene.add(group);
+    this.player.group.visible = false;
+
+    this.sup = {
+      t: 0, hit: false, group, carrier, rammer,
+      carrierAnim: new Animator(carrier), rammerAnim: new Animator(rammer),
+      from, to: stop, dir, yaw,
+    };
+    this.ui.setCutin('スーパー！\nまひろ頭突き！');
+    this.ui.setSwapVisible(false);
+    this.sfx.superCall();
+    this.setMusicLv(2);
+    group.updateMatrixWorld(true);
+    console.info(`super: 開始 操作=${this.current}`);
+  }
+
+  /** 必殺技の進行。0〜SUP_CUTIN 見せ場、突進、着弾、戻り */
+  private updateSuper(dt: number) {
+    const sp = this.sup;
+    if (!sp) return;
+    sp.t += dt;
+    const t = sp.t;
+
+    // 位置。見せ場のあいだは溜め、そのあと一気に詰める
+    let k = 0;
+    if (t > SUP_CUTIN) k = Math.min(1, (t - SUP_CUTIN) / SUP_DASH);
+    const ease = k * k * (3 - 2 * k);
+    sp.group.position.lerpVectors(sp.from, sp.to, ease);
+    sp.group.rotation.y = sp.yaw;
+
+    // 姿勢
+    sp.carrierAnim.apply(poseCarry(t * 2.2), 14, dt);
+    sp.rammerAnim.apply(poseRam(t * 2.2), 14, dt);
+    sp.carrier.update(dt);
+    sp.rammer.update(dt);
+
+    // 突っ込んでいる間は尾を引く
+    if (t > SUP_CUTIN && !sp.hit && Math.random() < 0.6) {
+      const p = sp.group.position.clone().addScaledVector(sp.dir, 0.6);
+      p.y = 1.2;
+      this.particles.emit(p, { color: 0xffb060, count: 4, speed: 5, size: 0.2, life: 0.3 });
+    }
+
+    // 着弾
+    if (!sp.hit && k >= 1) {
+      sp.hit = true;
+      this.ui.setCutin('');
+      const c = this.boss.center.clone();
+      this.sfx.superHit();
+      this.ctx.shake(2.4);
+      this.ctx.hitstop(0.5, 0.12);
+      this.ctx.punch(1.6);
+      this.fx.flash(c, 0xfff0c0, 6.5, 0.45);
+      this.fx.ring(this.boss.pos, 0xffc247, 12, 0.8);
+      this.fx.pillar(this.boss.pos, 0xff8a3a, 14, 1.8, 0.8);
+      this.fx.impact(c, 0xffd070, 5.5);
+      this.particles.emit(c, { color: 0xffd070, count: 90, speed: 16, size: 0.4, life: 0.9 });
+      this.ui.flash(0.5);
+      this.ui.showBanner('頭突き！', '#ffe08a', 1.4);
+      // 必ず当たる。大きく削って無防備にする
+      this.boss.takeDamage(SUP_DAMAGE, 0, this.ctx);
+      if (this.boss.alive) this.boss.stagger(SUP_STAGGER, this.ctx);
+      console.info('super: 着弾');
+    }
+
+    if (t >= SUP_CUTIN + SUP_DASH + SUP_AFTER) this.endSuper();
+  }
+
+  /** 必殺技の後始末。二人を元に戻して操作を返す */
+  private endSuper() {
+    const sp = this.sup;
+    if (!sp) return;
+    this.sup = null;
+    this.ui.setCutin('');
+    // 抱えていた側（＝操作していないキャラ）を場から外す
+    sp.group.remove(sp.carrier.root, sp.rammer.root);
+    this.scene.remove(sp.group);
+    for (const rig of [sp.carrier, sp.rammer]) {
+      rig.root.position.set(0, 0, 0);
+      rig.root.rotation.set(0, 0, 0);
+    }
+    // 操作しているキャラの体は元の入れ物へ戻す
+    this.player.group.add(this.player.rig.root);
+    this.player.group.visible = true;
+    // 立ち位置を突っ込んだ先へ移す
+    this.player.pos.set(sp.group.position.x, 0, sp.group.position.z);
+    this.player.heading = sp.yaw;
+    this.player.group.position.copy(this.player.pos);
+    this.player.group.updateMatrixWorld(true);
+    this.player.rig.resetSprings?.();
+    this.boss.freeze(false);
+    if (this.state === 'play') this.input.enabled = true;
+    this.ui.setSwapVisible(!!this.rigs.mahiro && !!this.rigs.chisato);
+    this.setMusicLv(this.boss.phase >= 3 ? 2 : 1);
+    console.info('super: 終了');
   }
 
   /** 記録の知らせを覚える。リザルトが出ていればすぐ反映する */
@@ -787,6 +947,12 @@ export class Game {
     this.arena.update(dt);
 
     const playing = this.state === 'play';
+    // 必殺ゲージ。満タンならボタンを出す
+    if (playing) {
+      this.ui.setSuper(this.player.superGauge);
+      this.input.setSuperReady(this.player.superReady && !this.sup);
+      if (this.input.consume('super') && this.canSuper) this.startSuper();
+    }
     if (playing) this.playTime += dt;
     if (this.state === 'over') {
       this.overTimer += real;
@@ -800,7 +966,9 @@ export class Game {
       }
     }
 
-    this.player.update(dt, this.ctx);
+    // 必殺技の最中は、操作キャラの体は演出側が預かっている
+    if (this.sup) this.updateSuper(dt);
+    else this.player.update(dt, this.ctx);
     if (this.partner) {
       this.partner.t += dt;
       // 少し遅れて拍手を始める
@@ -821,7 +989,7 @@ export class Game {
       }
     }
     this.bullets.update(dt, (b) => (b.owner === 'boss' ? this.player.center : this.boss.alive ? this.boss.center : null), ARENA_R);
-    if (playing) this.collide();
+    if (playing && !this.sup) this.collide();
     this.particles.update(dt);
     this.fx.update(dt);
 
@@ -888,6 +1056,18 @@ export class Game {
       const yaw = t.heading + off;
       desired = new THREE.Vector3(t.pos.x + Math.sin(yaw) * 3.2, t.pos.y + 1.5, t.pos.z + Math.cos(yaw) * 3.2);
       look = new THREE.Vector3(t.pos.x, t.pos.y + 1.0, t.pos.z);
+    } else if (this.sup) {
+      // 必殺技: 見せ場は横から寄り、突進中は少し引いて追う
+      const sp = this.sup;
+      const right = this.tmp.set(sp.dir.z, 0, -sp.dir.x);
+      // 二人ぶんの真ん中。抱えられている側が前に出ているぶん、注視点を前へずらす
+      const mid = new THREE.Vector3(sp.group.position.x, 1.2, sp.group.position.z).addScaledVector(sp.dir, 0.9);
+      const close = sp.t < SUP_CUTIN;
+      desired = mid.clone()
+        .addScaledVector(right, close ? 4.6 : 5.4)
+        .addScaledVector(sp.dir, close ? 0.2 : -1.4);
+      desired.y = close ? 1.9 : 2.5;
+      look = mid.clone();
     } else if (this.state === 'over' && this.overWin) {
       // 正面から全身を大きく。被写体が画面の左に寄るよう、注視点を右へずらす
       const d = this.victoryDir;
@@ -912,7 +1092,7 @@ export class Game {
       look = new THREE.Vector3(pl.pos.x, pl.pos.y + 1.1, pl.pos.z).addScaledVector(dir, Math.min(len, 10) * 0.4);
       if (!bo.alive) { desired.y += 1; }
     }
-    const rate = this.state === 'title' ? 2 : 5;
+    const rate = this.state === 'title' ? 2 : this.sup ? 9 : 5;
     this.camPos.x = damp(this.camPos.x, desired.x, rate, real);
     this.camPos.y = damp(this.camPos.y, desired.y, rate, real);
     this.camPos.z = damp(this.camPos.z, desired.z, rate, real);

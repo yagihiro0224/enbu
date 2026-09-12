@@ -144,6 +144,21 @@ export class Boss {
     return this.phase >= 3 ? 0xffd070 : 0x9fe0ff;
   }
 
+  /**
+   * 必殺技の間は動きも攻撃も止める。
+   * 溜めていた弾幕も捨てるので、技の最中に撃たれることはない
+   */
+  freeze(v: boolean, ctx?: Ctx) {
+    this.frozen = v;
+    if (!v) return;
+    this.gen = null;
+    this.wait = 0.8;
+    this.vel.set(0, 0, 0);
+    if (this.state === 'cast' || this.state === 'charge' || this.state === 'lunge') this.state = 'idle';
+    if (ctx) this.clearBullets(ctx);
+  }
+  private frozen = false;
+
   stagger(sec: number, ctx: Ctx) {
     if (!this.alive) return;
     this.state = 'stagger';
@@ -481,11 +496,11 @@ export class Boss {
         const n = dist > 0.1 ? toP.clone().divideScalar(dist) : new THREE.Vector3(0, 0, 1);
         const tangent = new THREE.Vector3(-n.z, 0, n.x).multiplyScalar(this.strafeDir * (this.state === 'cast' ? 1.2 : 2.6));
         const target = n.multiplyScalar(this.state === 'charge' ? 0 : radial).add(this.state === 'charge' ? new THREE.Vector3() : tangent);
-        this.vel.x = damp(this.vel.x, target.x, 3, dt);
-        this.vel.z = damp(this.vel.z, target.z, 3, dt);
+        this.vel.x = damp(this.vel.x, this.frozen ? 0 : target.x, 3, dt);
+        this.vel.z = damp(this.vel.z, this.frozen ? 0 : target.z, 3, dt);
       }
-      // パターン進行
-      if (this.state === 'idle' || this.state === 'cast' || this.state === 'charge') {
+      // パターン進行。必殺技の最中は何もしない（撃たれずに殴られる側になる）
+      if (!this.frozen && (this.state === 'idle' || this.state === 'cast' || this.state === 'charge')) {
         this.wait -= dt;
         let guard = 0;
         while (this.wait <= 0 && (this.state === 'idle' || this.state === 'cast' || this.state === 'charge') && guard++ < 50) {

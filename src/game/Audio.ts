@@ -583,6 +583,68 @@ export class Sfx {
     this.noise(0.3, { gain: 0.25, freq: 800, end: 5000, q: 1.5 });
     this.tone(1200, 0.3, { type: 'sine', gain: 0.12, end: 2400 });
   }
+  /** 必殺技の入り。低く伸びる唸りと、上がっていく気配 */
+  superCall() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    // 腹に来る低音
+    const o1 = this.osc('sawtooth', 55, t, 1.0);
+    o1.frequency.exponentialRampToValueAtTime(38, t + 0.9);
+    const dr = this.drive();
+    if (dr) {
+      o1.connect(dr);
+      const g = this.envNode(dr, t, 1.0, 0.34, 0.05);
+      this.send(g, 0.35);
+    }
+    // 立ち上がっていくノイズ
+    const n = this.noiseSrc(t, 0.9);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.2;
+    bp.frequency.setValueAtTime(300, t);
+    bp.frequency.exponentialRampToValueAtTime(5200, t + 0.85);
+    n.connect(bp);
+    const g2 = this.envNode(bp, t, 0.9, 0.3, 0.5);
+    this.send(g2, 0.3);
+    this.tone(1046, 0.5, { type: 'triangle', gain: 0.12, end: 1568, delay: 0.5 });
+  }
+
+  /** 必殺技の着弾。全部乗せの一撃 */
+  superHit() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    // 破裂
+    const crack = this.noiseSrc(t, 0.06);
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2600;
+    crack.connect(hp);
+    const gc = this.envNode(hp, t, 0.06, 0.7, 0.001);
+    this.send(gc, 0.4);
+    // 芯。深く長い低音
+    const sub = this.osc('sine', 64, t, 1.1);
+    sub.frequency.exponentialRampToValueAtTime(30, t + 0.35);
+    this.envNode(sub, t, 1.1, 0.95, 0.004);
+    // 潰れた胴鳴り
+    const body = this.osc('sawtooth', 130, t, 0.6);
+    body.frequency.exponentialRampToValueAtTime(52, t + 0.2);
+    const dr = this.drive();
+    if (dr) {
+      body.connect(dr);
+      const g = this.envNode(dr, t, 0.6, 0.5, 0.003);
+      this.send(g, 0.45);
+    }
+    // 崩れる余韻
+    const tail = this.noiseSrc(t + 0.02, 0.9);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(3200, t);
+    lp.frequency.exponentialRampToValueAtTime(200, t + 0.9);
+    tail.connect(lp);
+    const gt = this.envNode(lp, t + 0.02, 0.9, 0.4, 0.004);
+    this.send(gt, 0.5);
+  }
+
   bossHurt() {
     this.tone(520, 0.12, { type: 'triangle', gain: 0.15, end: 380 });
   }

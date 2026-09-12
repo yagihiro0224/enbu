@@ -13,6 +13,39 @@ const CSS = `
 /* 主人公のゲージ（左上）と交代ボタン（左）に被らないよう右へ寄せる。
    上端は ♪ ボタンの下に来るように 46px 下げてある */
 #bhp-wrap { position: absolute; right: max(16px, env(safe-area-inset-right)); top: calc(max(12px, env(safe-area-inset-top)) + 46px); width: min(46vw, 400px); text-align: right; }
+/* 必殺ゲージ。主人公の体力バーの下 */
+#sp-wrap { position: absolute; left: max(16px, env(safe-area-inset-left)); top: calc(max(12px, env(safe-area-inset-top)) + 34px);
+  width: min(32vw, 240px); display: flex; align-items: center; gap: 6px; }
+#sp-wrap .l { font-size: 9px; font-weight: 900; letter-spacing: 0.1em; color: #ffd98a; text-shadow: 0 1px 3px #000; }
+#sp { position: relative; flex: 1; height: 6px; border-radius: 4px; background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.28); overflow: hidden; }
+#sp > i { position: absolute; inset: 0; transform-origin: left; transform: scaleX(0);
+  background: linear-gradient(90deg, #ffb347, #ffe98a); transition: transform 0.2s; }
+#sp-wrap.full .l { color: #fff2c0; }
+#sp-wrap.full #sp { border-color: #ffe08a; box-shadow: 0 0 10px rgba(255,210,120,0.9); }
+#sp-wrap.full #sp > i { background: linear-gradient(90deg, #ffe98a, #fff6d0, #ffb347); animation: spfull 0.8s ease-in-out infinite; }
+@keyframes spfull { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+/* 必殺技のカットイン */
+#cutin { position: absolute; inset: 0; display: none; align-items: flex-end; justify-content: center; padding-bottom: 18vh; pointer-events: none; }
+#cutin.on { display: flex; }
+#cutin .bg { position: absolute; inset: 0;
+  background: repeating-linear-gradient(100deg, rgba(255,255,255,0.16) 0 3px, rgba(255,255,255,0) 3px 22px);
+  animation: cutlines 0.5s linear infinite; opacity: 0.85; }
+@keyframes cutlines { to { transform: translateX(-25px); } }
+#cutin .txt { position: relative; font-size: clamp(22px, 6.4vw, 58px); font-weight: 900; letter-spacing: 0.04em;
+  text-align: center; line-height: 1.12; color: #fff; white-space: pre-line;
+  background: linear-gradient(180deg, #fff6d0, #ffc247 55%, #ff7a2a);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 3px 0 #7a1a00) drop-shadow(0 0 18px rgba(255,170,60,0.95));
+  transform: rotate(-6deg) scale(0.7); opacity: 0; }
+#cutin.on .txt { animation: cutin 0.5s cubic-bezier(0.15, 1.4, 0.4, 1) forwards; }
+@keyframes cutin {
+  0% { transform: rotate(-16deg) scale(0.4); opacity: 0; }
+  60% { transform: rotate(-6deg) scale(1.12); opacity: 1; }
+  100% { transform: rotate(-6deg) scale(1); opacity: 1; }
+}
+
 #bhp-wrap .name { font-size: 14px; font-weight: 700; letter-spacing: 0.2em; text-shadow: 0 1px 4px #000; margin-bottom: 4px; color: #e8c8ff; }
 #bhp { position: relative; width: 100%; height: 12px; }
 #bhp > i { background: linear-gradient(90deg, #7a2cff, #d05aff, #ff7ad9); }
@@ -83,6 +116,7 @@ const CSS = `
 #result.lose { background: radial-gradient(ellipse at center, rgba(18,4,13,0.94), rgba(5,1,4,0.985)); flex-direction: column; align-items: center; justify-content: center; }
 /* 戦闘用の HUD はプレイ中だけ出す（タイトルとリザルトでは隠す） */
 #hud:not(.playing) #php-wrap, #hud:not(.playing) #bhp-wrap, #hud:not(.playing) #help, #hud:not(.playing) #combo,
+#hud:not(.playing) #sp-wrap, #hud.result-on #sp-wrap,
 #hud.result-on #php-wrap, #hud.result-on #bhp-wrap, #hud.result-on #help, #hud.result-on #combo { display: none; }
 #res-panel, #rank-panel { width: min(58vw, 760px); height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center;
   gap: 10px; padding: 16px 30px 16px 40px;
@@ -218,7 +252,7 @@ const CSS = `
 @keyframes newrec { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
 
 /* 名前の入力（タイトル） */
-#nameRow { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
+#nameRow { display: flex; align-items: center; gap: 8px; margin-top: 16px; pointer-events: auto; }
 #nameRow.hidden { display: none; }
 #nameRow label { font-size: 12px; letter-spacing: 0.2em; color: #ffd6c0; }
 #pname { width: 150px; padding: 8px 12px; border-radius: 20px; border: 2px solid rgba(255,179,71,0.7);
@@ -227,11 +261,6 @@ const CSS = `
 #rankbtn { pointer-events: auto; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
   border: 2px solid rgba(200,160,255,0.7); background: rgba(30,10,40,0.8); color: #e8c8ff; cursor: pointer; font-family: inherit; }
 #rankbtn:active { transform: scale(0.95); }
-/* 使えない名前を入れたときの注意書き */
-#namewarn { position: absolute; left: 50%; top: 100%; transform: translateX(-50%); margin-top: 8px; pointer-events: none;
-  font-size: 12px; font-weight: 700; color: #ff9a8a; text-shadow: 0 1px 4px #000; white-space: nowrap;
-  opacity: 0; transition: opacity 0.25s; }
-#namewarn.on { opacity: 1; }
 
 /* ランキングの表 */
 .ranklist { width: 100%; display: flex; flex-direction: column; gap: 3px; }
@@ -324,9 +353,11 @@ export class UI {
       <div id="vignette"></div><div id="lowhp"></div>
       <div id="php-wrap"><div class="name">深川まひろ</div><div class="bar" id="php"><b></b><i></i></div></div>
       <div id="bhp-wrap"><div class="name">妖魔 ─ 紫苑</div><div class="bar" id="bhp"><b></b><i></i><span class="ph" style="left:60%"></span><span class="ph" style="left:30%"></span></div></div>
+      <div id="sp-wrap"><span class="l">必殺</span><span class="bar" id="sp"><i></i></span></div>
+      <div id="cutin"><div class="bg"></div><div class="txt"></div></div>
       <div id="combo"><div class="n">0</div><div class="l">COMBO</div></div>
       <div id="banner"></div>
-      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・Q 交代</div>
+      <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・U 必殺・Q 交代</div>
       <button id="music" title="BGM">♪</button>
       <div id="fps"></div>
       <div id="flash"></div>
@@ -345,7 +376,6 @@ export class UI {
           <label for="pname">なまえ</label>
           <input id="pname" maxlength="12" placeholder="ななし" autocomplete="off" spellcheck="false">
           <button id="rankbtn" type="button">ランキング</button>
-          <div id="namewarn"></div>
         </div>
         <button id="startbtn" class="hidden">ゲーム開始</button>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
@@ -387,6 +417,10 @@ export class UI {
     this.phpGhost = q('#php > b');
     this.bhp = q('#bhp > i');
     this.bhpGhost = q('#bhp > b');
+    this.spWrap = q('#sp-wrap');
+    this.spBar = q('#sp > i');
+    this.cutin = q('#cutin');
+    this.cutinTxt = q('#cutin .txt');
     this.combo = q('#combo');
     this.comboN = q('#combo .n');
     this.banner = q('#banner');
@@ -444,7 +478,6 @@ export class UI {
     // 名前の入力。打ち替えるたびに呼び出し側へ渡す
     this.nameRow = q('#nameRow');
     this.nameInput = q('#pname') as HTMLInputElement;
-    this.nameWarn = q('#namewarn');
     this.nameInput.addEventListener('input', () => this.onName(this.nameInput.value));
     this.nameInput.addEventListener('keydown', (e) => {
       e.stopPropagation(); // ゲームの操作キーに拾われないように
@@ -463,6 +496,10 @@ export class UI {
   private loadingEl: HTMLElement;
   private charsel: HTMLElement;
   private swapBtn: HTMLElement;
+  private spWrap!: HTMLElement;
+  private spBar!: HTMLElement;
+  private cutin!: HTMLElement;
+  private cutinTxt!: HTMLElement;
   private swapName!: HTMLElement;
   private swapHp!: HTMLElement;
   private cards: HTMLElement[] = [];
@@ -474,17 +511,6 @@ export class UI {
 
   private nameRow!: HTMLElement;
   private nameInput!: HTMLInputElement;
-  private nameWarn!: HTMLElement;
-  private nameWarnTimer = 0;
-
-  /** 入力された名前を突き返す。欄を空にして理由を出す */
-  rejectName(message: string) {
-    this.nameInput.value = '';
-    this.nameWarn.textContent = message;
-    this.nameWarn.classList.add('on');
-    clearTimeout(this.nameWarnTimer);
-    this.nameWarnTimer = window.setTimeout(() => this.nameWarn.classList.remove('on'), 3200);
-  }
   private rankBoard!: HTMLElement;
   private rankList!: HTMLElement;
   private rankNote!: HTMLElement;
@@ -576,6 +602,17 @@ export class UI {
   setPlayerName(name: string) { this.playerName.textContent = name; }
   /** 戦闘用 HUD の表示。タイトル中は出さない */
   setPlaying(v: boolean) { this.hud.classList.toggle('playing', v); }
+  /** 必殺ゲージ 0..1 */
+  setSuper(frac: number) {
+    this.spBar.style.transform = `scaleX(${Math.max(0, Math.min(1, frac))})`;
+    this.spWrap.classList.toggle('full', frac >= 1);
+  }
+  /** 必殺技のカットイン。text を空にすると消える */
+  setCutin(text: string) {
+    this.cutinTxt.textContent = text;
+    this.cutin.classList.toggle('on', text !== '');
+  }
+
   setSwapVisible(v: boolean) { this.swapBtn.classList.toggle('hidden', !v); }
   setSwapCooldown(v: boolean) { this.swapBtn.classList.toggle('cool', v); }
   /** 控えているキャラの名前と体力 */

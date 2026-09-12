@@ -340,6 +340,45 @@ export function poseCast(t: number, intensity = 1): Pose {
 }
 
 /** ボスの突進 */
+/**
+ * 相棒を前に抱えて走る姿勢（ちさと）。
+ * 腕は前へ伸ばし、上体を前に倒して踏み込む
+ */
+export function poseCarry(t: number): Pose {
+  const bob = Math.sin(t * 16) * 0.05;
+  const stride = Math.sin(t * 16);
+  return {
+    ...arms(
+      { L: [[0.35, 0.12, 0.92], [0.12, 0.18, 0.98]], R: [[-0.35, 0.12, 0.92], [-0.12, 0.18, 0.98]] },
+      [0.24, 0, 0]
+    ),
+    hipsY: -0.06 + bob,
+    spine: [0.24, 0, 0],
+    head: [-0.2, 0, 0],
+    upperLegL: [-0.75 - stride * 0.25, 0, -0.06],
+    lowerLegL: [0.95, 0, 0],
+    upperLegR: [0.55 + stride * 0.25, 0, 0.06],
+    lowerLegR: [0.75, 0, 0],
+  };
+}
+
+/**
+ * 抱えられて頭から突っ込む姿勢（まひろ）。
+ * 体は親側で横倒しにするので、ここでは腕を後ろへ流して頭を突き出すだけ
+ */
+export function poseRam(t: number): Pose {
+  const q = Math.sin(t * 22) * 0.05;
+  return {
+    ...arms({ L: [[0.3, -0.2, -0.9], [0.12, -0.12, -0.98]], R: [[-0.3, -0.2, -0.9], [-0.12, -0.12, -0.98]] }),
+    spine: [-0.14 + q, 0, 0],
+    head: [-0.32, 0, 0],
+    upperLegL: [0.16, 0, -0.05],
+    lowerLegL: [0.12 + q, 0, 0],
+    upperLegR: [0.16, 0, 0.05],
+    lowerLegR: [0.12 - q, 0, 0],
+  };
+}
+
 export function poseLunge(): Pose {
   return {
     hipsY: -0.08,

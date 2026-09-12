@@ -1,10 +1,11 @@
-export type Action = 'attack' | 'dodge' | 'parry' | 'shoot';
+export type Action = 'attack' | 'dodge' | 'parry' | 'shoot' | 'super';
 
 const KEYMAP: Record<string, Action> = {
   KeyJ: 'attack', KeyZ: 'attack', Enter: 'attack',
   KeyK: 'dodge', Space: 'dodge', KeyX: 'dodge',
   KeyL: 'parry', ShiftLeft: 'parry', ShiftRight: 'parry', KeyC: 'parry',
   KeyI: 'shoot', KeyV: 'shoot', KeyH: 'shoot',
+  KeyU: 'super', KeyE: 'super',
 };
 
 const CSS = `
@@ -28,12 +29,21 @@ const CSS = `
 #b-dodge { width: 70px; height: 70px; right: 104px; bottom: 6px; border-color: #7fd4ff; }
 #b-parry { width: 70px; height: 70px; right: 16px; bottom: 108px; border-color: #ffd86a; }
 #b-shoot { width: 60px; height: 60px; right: 98px; bottom: 96px; border-color: #ff6ab8; }
+/* 必殺技。ゲージが満タンのときだけ出す */
+#b-super { width: 78px; height: 78px; right: 150px; bottom: 150px; border-color: #ffe08a; font-size: 22px;
+  background: rgba(90,30,10,0.72); display: none; }
+#b-super.ready { display: flex; animation: superpulse 0.9s ease-in-out infinite; }
+@keyframes superpulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255,200,90,0.7); }
+  50% { box-shadow: 0 0 26px rgba(255,220,140,1); }
+}
 @media (max-height: 420px) {
   .btns { width: 180px; height: 180px; }
   #b-attack { width: 80px; height: 80px; }
   #b-dodge { width: 62px; height: 62px; right: 90px; }
   #b-parry { width: 62px; height: 62px; bottom: 94px; }
   #b-shoot { width: 54px; height: 54px; right: 86px; bottom: 84px; }
+  #b-super { width: 68px; height: 68px; right: 132px; bottom: 128px; }
 }
 `;
 
@@ -52,6 +62,11 @@ export class Input {
   private btnEls = new Map<Action, HTMLElement>();
   enabled = false;
   private rootEl!: HTMLElement;
+  /** 必殺ボタンの出し入れ。ゲージが満タンのときだけ出す */
+  setSuperReady(v: boolean) {
+    this.btnEls.get('super')?.classList.toggle('ready', v);
+  }
+
   /** タイトルやリザルトでは操作 UI を隠す（左半分のスティック領域がボタンのタップを横取りするため） */
   setVisible(v: boolean) {
     this.rootEl.style.display = v ? '' : 'none';
@@ -67,6 +82,7 @@ export class Input {
     root.innerHTML = `
       <div id="stick-zone"><div id="stick"><div id="knob"></div></div></div>
       <div class="btns">
+        <div class="btn" id="b-super" data-a="super"><span>必<small>U</small></span></div>
         <div class="btn" id="b-attack" data-a="attack"><span>打<small>J</small></span></div>
         <div class="btn" id="b-dodge" data-a="dodge"><span>避<small>K / Space</small></span></div>
         <div class="btn" id="b-parry" data-a="parry"><span>受<small>L</small></span></div>

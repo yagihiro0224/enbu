@@ -13,6 +13,16 @@ const DODGE_DUR = 0.34;
 const PARRY_WINDOW = 0.24;
 const PARRY_DUR = 0.38;
 
+/**
+ * 必殺ゲージの溜まり方。1.0 で満タン。
+ * 一戦で 1 回ぶん溜まるくらいを狙っている。殴るだけでは届かず、
+ * 受け流しや被弾も混ぜないと満タンにならない重さにしてある
+ */
+const SUPER_PER_HIT = 0.016;        // 打撃 1 発（63 発で満タン）
+const SUPER_PER_MELEE_PARRY = 0.07; // 突進のパリィ
+const SUPER_PER_BULLET_PARRY = 0.03; // 弾のパリィ
+const SUPER_PER_DAMAGE = 0.08;      // 被弾
+
 /** 敵から受けるダメージの倍率。難易度調整（2026-09-11 に 1.0 → 1.2、2026-09-12 にさらに 1.3 倍して 1.56） */
 const ENEMY_DMG_MUL = 1.56;
 
@@ -48,6 +58,8 @@ export class Player {
   meleeParries = 0;
   bulletParries = 0;
   damaged = false;
+  /** 必殺ゲージ 0..1。満タンで合体必殺技が撃てる */
+  superGauge = 0;
   private runCycle = 0;
   private flash = 0;
   private glow = 0;
@@ -106,6 +118,7 @@ export class Player {
     this.combo = this.maxCombo = this.parries = 0;
     this.meleeHits = this.meleeParries = this.bulletParries = 0;
     this.damaged = false;
+    this.superGauge = 0;
     this.comboTimer = 0;
     this.flash = this.glow = 0;
     this.rig.setFlash(0);
@@ -132,12 +145,26 @@ export class Player {
     ctx.ui.setCombo(this.combo);
   }
 
+  /** 必殺ゲージを溜める */
+  addSuper(v: number) {
+    this.superGauge = Math.min(1, this.superGauge + v);
+  }
+  /** 必殺ゲージが満タンか */
+  get superReady() {
+    return this.superGauge >= 1;
+  }
+  /** 必殺技を使ってゲージを空にする */
+  spendSuper() {
+    this.superGauge = 0;
+  }
+
   takeDamage(dmg: number, ctx: Ctx, from?: THREE.Vector3): boolean {
     if (!this.alive) return false;
     if (this.invuln > 0 || this.state === 'dodge') return false;
     // 敵から受けるダメージはすべてここを通るので、難易度の倍率もここで掛ける
     this.hp = Math.max(0, this.hp - dmg * ENEMY_DMG_MUL);
     this.damaged = true;
+    this.addSuper(SUPER_PER_DAMAGE);
     this.invuln = 0.9;
     this.combo = 0;
     this.comboTimer = 0;
@@ -248,6 +275,7 @@ export class Player {
       if (dist < cfg.reach + boss.radius && dot > Math.cos(1.2)) {
         boss.takeDamage(cfg.dmg, cfg.poise, ctx);
         this.meleeHits++;
+        this.addSuper(SUPER_PER_HIT);
         ctx.hitstop((kind === 'spin' ? 0.16 : kind === 'kick' ? 0.1 : 0.065) * st.hitstop, 0.04);
         ctx.shake((kind === 'spin' ? 0.9 : kind === 'kick' ? 0.55 : 0.38) * st.shake);
         ctx.punch((kind === 'spin' ? 1 : 0.5) * st.punch);
@@ -365,6 +393,7 @@ export class Player {
         ctx.fx.ring(this.pos, 0xffe066, 3.2, 0.35);
         this.parries++;
         this.bulletParries++;
+        this.addSuper(SUPER_PER_BULLET_PARRY);
         this.registerHit(ctx);
       }
       ctx.particles.emit(c, { color: 0xffe066, count: Math.min(30, 8 + n * 3), speed: 8, size: 0.24, life: 0.45 });
@@ -383,6 +412,7 @@ export class Player {
         ctx.shake(0.9);
         this.parries++;
         this.meleeParries++;
+        this.addSuper(SUPER_PER_MELEE_PARRY);
         this.registerHit(ctx);
         ctx.particles.emit(c, { color: 0xfff0a0, count: 48, speed: 11, size: 0.3, life: 0.6 });
         ctx.fx.flash(c, 0xfff0a0, 5, 0.3);
