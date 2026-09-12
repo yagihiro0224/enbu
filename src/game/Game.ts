@@ -83,8 +83,10 @@ export class Game {
   private items = new Items(ARENA_R, 3);
   /** 体力はキャラごとに持つ。控えは少しずつ回復する */
   private charHp: Record<CharId, number> = { mahiro: 100, chisato: 100 };
-  /** 合成 BGM か、public/audio の mp3 のどちらか */
+  /** いま濃さを決めている BGM。曲の読み込み中は合成音が入る */
   private music: Music | Bgm | null = null;
+  /** 鳴っている BGM すべて。切り替え中は 2 つ並ぶので、音量の操作は両方に届ける */
+  private musicAll: (Music | Bgm)[] = [];
   private ranking = new Ranking();
   /** 直前に記録したスコア。リザルトで自分の行を強調するのに使う */
   private myEntry: Entry | null = null;
@@ -176,7 +178,7 @@ export class Game {
     this.ui.onSwap = () => this.swap();
     // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
     this.ui.onGesture = () => { this.ensureMusic(); this.setMusicLv(0); };
-    this.ui.onMusicToggle = (on) => this.music?.setMuted(!on);
+    this.ui.onMusicToggle = (on) => { for (const m of this.musicAll) m.setMuted(!on); };
     // 名前とランキング
     this.ui.setName(this.ranking.name);
     this.ui.onName = (v) => { this.ranking.name = v; };
@@ -326,6 +328,8 @@ export class Game {
       }));
       this.ui.showRankBoard(demo, 'みんなのランキング', 1);
     }
+    // ?audiodbg で音の状態を画面に出す。「BGM が聞こえない」ときの切り分け用
+    if (q.has('audiodbg')) this.showAudioDebug();
     if (q.has('bot')) this.input.bot = true;
     // ?hittest 単体ならタイトル画面の状態を調べる
     if (q.has('hittest') && !q.has('t') && !q.has('autostart')) setTimeout(() => this.hitTest(), 30);
@@ -571,6 +575,26 @@ export class Game {
       : '炎舞 -ENBU- で遊んでみて #炎舞ENBU';
   }
 
+  /** 音の状態を画面の隅に出し続ける（?audiodbg） */
+  private showAudioDebug() {
+    const el = document.createElement('div');
+    el.style.cssText =
+      'position:fixed;left:8px;top:8px;z-index:99;background:rgba(0,0,0,0.8);color:#9f9;' +
+      'font:12px/1.6 monospace;padding:8px 10px;border-radius:6px;white-space:pre;pointer-events:none';
+    document.body.appendChild(el);
+    setInterval(() => {
+      const kind = !this.music ? '未生成' : this.music instanceof Bgm ? this.music.status() : '合成音';
+      el.textContent = [
+        `音の土台: ${this.sfx.state}`,
+        `BGM: ${kind}`,
+        `♪ボタン: ${this.ui.musicOn ? 'on' : 'off'}`,
+        `濃さ: ${this.musicLv}`,
+        `効果音: ${this.sfx.sampleCount}本`,
+        `声: ${this.sfx.voiceCount}本`,
+      ].join('\n');
+    }, 400);
+  }
+
   /** 記録の知らせを覚える。リザルトが出ていればすぐ反映する */
   private setRecordNote(kind: 'none' | 'first' | 'record' | 'top', gain = 0) {
     this.recordNote = { kind, gain };
@@ -607,7 +631,7 @@ export class Game {
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */
   private setMusicLv(v: 0 | 1 | 2) {
     this.musicLv = v;
-    this.music?.setIntensity(v);
+    for (const m of this.musicAll) m.setIntensity(v);
   }
 
   /**
@@ -623,19 +647,31 @@ export class Game {
     void this.bgmProbe.then((files) => {
       this.musicPending = false;
       if (this.music) return;
-      const bgm = files ? new Bgm(a.ctx, a.dest, files) : null;
-      this.music = bgm ?? new Music(a.ctx, a.dest, a.noise);
-      this.music.setMuted(!this.ui.musicOn);
-      this.music.start();
-      this.music.setIntensity(this.musicLv);
-      // mp3 が読めなかったら合成 BGM に戻す
-      if (bgm) void bgm.ready().then((ok) => {
-        if (ok || this.music !== bgm) return;
-        bgm.dispose();
-        this.music = new Music(a.ctx, a.dest, a.noise);
-        this.music.setMuted(!this.ui.musicOn);
-        this.music.start();
-        this.music.setIntensity(this.musicLv);
+      // 曲の読み込みは数秒かかる。**その間を合成音でつなぐ**（以前はここが無音だった）
+      const synth = new Music(a.ctx, a.dest, a.noise);
+      this.music = synth;
+      this.musicAll = [synth];
+      synth.setMuted(!this.ui.musicOn);
+      synth.start();
+      synth.setIntensity(this.musicLv);
+      if (!files) return;
+
+      const bgm = new Bgm(a.ctx, a.dest, files);
+      this.musicAll.push(bgm);
+      bgm.setMuted(!this.ui.musicOn);
+      bgm.start();
+      bgm.setIntensity(this.musicLv);
+      void bgm.ready().then((ok) => {
+        if (!ok) {
+          // mp3 が読めなかった。合成音のまま続ける
+          bgm.dispose();
+          this.musicAll = [synth];
+          return;
+        }
+        // 曲が鳴り出したので合成音を引く
+        synth.stop(1.0);
+        this.music = bgm;
+        this.musicAll = [bgm];
       });
     });
   }

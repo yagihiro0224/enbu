@@ -32,6 +32,24 @@ const CROSSFADE = 0.9; // 秒
 
 const url = (name: string) => `${import.meta.env.BASE_URL}audio/${name}`;
 
+/**
+ * 曲の中身を先に取っておく入れ物。
+ * **音を鳴らせるのは画面に触れてからだが、ダウンロードは開いた瞬間から始められる**。
+ * 4.8MB あるので、これをやらないと曲が始まるまで何秒も無音になる
+ */
+const prefetched = new Map<string, Promise<ArrayBuffer>>();
+
+function prefetch(name: string) {
+  if (prefetched.has(name)) return;
+  prefetched.set(
+    name,
+    fetch(url(name))
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('読めない'))))
+  );
+  // 取れなくても握りつぶす（鳴らすときに取り直す）
+  void prefetched.get(name)!.catch(() => {});
+}
+
 /** 無音とみなす振幅。-48dB 相当 */
 const SILENCE = 0.004;
 
@@ -76,7 +94,10 @@ export async function findBgmFiles(): Promise<string[] | null> {
   );
   const list = found.filter((n): n is string => n !== null);
   // 戦闘曲が無ければ合成 BGM のまま
-  return FILES[1].some((n) => list.includes(n)) ? list : null;
+  const battle = FILES[1].find((n) => list.includes(n));
+  if (!battle) return null;
+  prefetch(battle); // 触られるのを待たずに落とし始める
+  return list;
 }
 
 export class Bgm {
@@ -108,6 +129,12 @@ export class Bgm {
   /** 最初の曲が鳴り出せたかを返す。false なら合成 BGM に切り替えること */
   ready() {
     return this.firstLoad;
+  }
+
+  /** 状態の要約（診断用） */
+  status() {
+    const g = this.bus.gain.value.toFixed(2);
+    return `mp3 ${this.playing ?? '未再生'} 音量${g} 読込${this.buffers.size}本`;
   }
 
   start() {
@@ -147,8 +174,15 @@ export class Bgm {
   private async load(name: string) {
     const hit = this.buffers.get(name);
     if (hit) return hit;
-    const res = await fetch(url(name));
-    const buf = await this.ctx.decodeAudioData(await res.arrayBuffer());
+    // 先に取ってあればそれを使う。無ければ今から取る
+    let bytes: ArrayBuffer;
+    try {
+      bytes = await (prefetched.get(name) ?? fetch(url(name)).then((r) => r.arrayBuffer()));
+    } catch {
+      bytes = await fetch(url(name)).then((r) => r.arrayBuffer());
+    }
+    // decodeAudioData は渡した中身を消費するので、写しを渡す
+    const buf = await this.ctx.decodeAudioData(bytes.slice(0));
     this.buffers.set(name, buf);
     this.ranges.set(name, trimRange(buf));
     return buf;

@@ -239,6 +239,17 @@ export class Sfx {
     return w;
   }
 
+  /** 音の土台の状態（診断用）。running なら鳴らせる */
+  get state() {
+    if (!this.ctx) return '未開始';
+    return (this.ctx as AudioContext).state ?? '不明';
+  }
+
+  /** 読み込めた効果音の本数（診断用） */
+  get sampleCount() {
+    return this.samples.size;
+  }
+
   /** BGM が使う音声の入り口。unlock() 済みのときだけ返る */
   get audio(): { ctx: BaseAudioContext; dest: AudioNode; noise: AudioBuffer } | null {
     if (!this.ctx || !this.master || !this.noiseBuf) return null;
