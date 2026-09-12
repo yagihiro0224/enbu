@@ -36,7 +36,8 @@ const CSS = `
 .overlay p { margin: 10px 24px; font-size: 14px; line-height: 1.7; color: #f0e0e8; max-width: 520px; }
 .overlay .tap { margin-top: 18px; font-size: 18px; font-weight: 700; letter-spacing: 0.3em; color: #fff; animation: blink 1.4s infinite; }
 @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-.overlay .btnrow { display: flex; gap: 14px; margin-top: 22px; }
+.overlay .btnrow { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
+#sharex, #sharecopy { font-size: 15px; padding: 10px 20px; }
 .overlay button { pointer-events: auto; font-size: 18px; font-weight: 700; padding: 12px 30px; border-radius: 30px; border: 2px solid #ffb347;
   background: linear-gradient(180deg, rgba(255,120,60,0.5), rgba(160,30,20,0.6)); color: #fff; letter-spacing: 0.2em; }
 .overlay button:active { transform: scale(0.95); }
@@ -354,7 +355,8 @@ export class UI {
           <div id="res-rankbox"></div>
           <div class="btnrow">
             <button id="retry">もう一度</button>
-            <button id="sharebtn">結果を共有</button>
+            <button id="sharex">Xに投稿</button>
+            <button id="sharecopy">コピー</button>
           </div>
         </div>
       </div>`;
@@ -428,7 +430,8 @@ export class UI {
     this.resRankBox = q('#res-rankbox');
     q('#rankbtn').addEventListener('click', (e) => { e.stopPropagation(); this.onRankOpen(); });
     q('#rankclose').addEventListener('click', (e) => { e.stopPropagation(); this.hideRankBoard(); });
-    q('#sharebtn').addEventListener('click', (e) => { e.stopPropagation(); this.onShare(); });
+    q('#sharex').addEventListener('click', (e) => { e.stopPropagation(); this.onShareX(); });
+    q('#sharecopy').addEventListener('click', (e) => { e.stopPropagation(); this.onShareCopy(); });
   }
 
   private playerName: HTMLElement;
@@ -454,8 +457,10 @@ export class UI {
   onName: (v: string) => void = () => {};
   /** タイトルの「ランキング」 */
   onRankOpen: () => void = () => {};
-  /** リザルトの「結果を共有」 */
-  onShare: () => void = () => {};
+  /** リザルトの「Xに投稿」 */
+  onShareX: () => void = () => {};
+  /** リザルトの「コピー」 */
+  onShareCopy: () => void = () => {};
 
   /** 入力欄に入っている名前 */
   get enteredName() { return this.nameInput?.value ?? ''; }

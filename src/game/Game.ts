@@ -176,7 +176,8 @@ export class Game {
     this.ui.setName(this.ranking.name);
     this.ui.onName = (v) => { this.ranking.name = v; };
     this.ui.onRankOpen = () => void this.openRanking();
-    this.ui.onShare = () => void this.share();
+    this.ui.onShareX = () => this.shareToX();
+    this.ui.onShareCopy = () => void this.shareCopy();
     window.addEventListener('keydown', (e) => { if (e.code === 'KeyQ' && !e.repeat) this.swap(); });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('orientationchange', () => setTimeout(() => this.resize(), 200));
@@ -359,7 +360,8 @@ export class Game {
           if (q.has('sharetest')) {
             console.info(`sharetest 指で触る端末=${matchMedia('(pointer: coarse)').matches}`);
             console.info(`sharetest 文面=${this.shareText()}`);
-            console.info(`sharetest リンク=${location.origin + location.pathname}`);
+            console.info(`sharetest リンク=${this.shareUrl()}`);
+            console.info(`sharetest X=https://x.com/intent/post?text=${encodeURIComponent(this.shareText())}&url=${encodeURIComponent(this.shareUrl())}`);
           }
           for (let i = 0; i < Number(q.get('vt') ?? 3.4) * 60; i++) this.step(1 / 60);
           // ?dance で勝利の踊りを 15fps の連続コマにして貼る
@@ -552,24 +554,32 @@ export class Game {
       : '炎舞 -ENBU- で遊んでみて #炎舞ENBU';
   }
 
-  private async share() {
-    const text = this.shareText();
-    const url = location.origin + location.pathname;
-    const body = `${text}\n${url}`;
+  /** 共有に使うリンク */
+  private shareUrl() {
+    return location.origin + location.pathname;
+  }
 
-    const coarse = matchMedia('(pointer: coarse)').matches;
-    const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
-    if (coarse && nav.share) {
-      try {
-        await nav.share({ title: '炎舞 -ENBU-', text, url });
-        return;
-      } catch {
-        // 共有をやめただけのこともあるので、続けてコピーを試す
-      }
+  /**
+   * X の投稿画面を開く。
+   * **端末の共有画面はリンクだけを渡す先が多く、点数が消える**ので使わない
+   * （パソコンから共有すると X にリンクしか入らない、という指摘への対応）。
+   */
+  private shareToX() {
+    const url = `https://x.com/intent/post?text=${encodeURIComponent(this.shareText())}&url=${encodeURIComponent(this.shareUrl())}`;
+    const w = window.open(url, '_blank', 'noopener,noreferrer');
+    if (!w) {
+      // 新しいタブが開けなかったときは、せめて手元に残す
+      void this.shareCopy();
     }
+  }
+
+  /** 文面とリンクをまとめてクリップボードへ写す */
+  private async shareCopy() {
+    const body = `${this.shareText()}\n${this.shareUrl()}`;
     if (await copyText(body)) this.ui.showBanner('結果をコピーしました', '#ffd6a0', 1.4);
     else this.ui.showBanner('コピーできませんでした', '#ffa0a0', 1.4);
   }
+
 
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */
   private setMusicLv(v: 0 | 1 | 2) {

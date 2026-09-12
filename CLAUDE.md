@@ -391,9 +391,11 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - **検証用の起動は本番のランキングに書き込まない**。`Rank.ts` の `isDebugRun()` が
   `?win ?lose ?bot ?hp ?lowhp ?t ?rankdemo ?sharetest` と localhost を弾く。
   これを入れる前に、ヘッドレスの `?win` 検証で「ななし 39,990,000」が 2 件本番に入った（KV Pairs の `top` を消して掃除する）
-- **共有はパソコンではクリップボードへ写す**。端末の共有画面に渡すとリンクだけが届き、点数が消えるため
-  （X の投稿欄にリンクしか入らないとユーザーから指摘）。指で触る端末（`pointer: coarse`）のときだけ `navigator.share` を使う。
-  文面は `shareText()`。検証は `?win=42&sec=52&sharetest`
+- **共有は「Xに投稿」と「コピー」の 2 つのボタン**。`navigator.share` は使わない。
+  端末の共有画面はリンクだけを渡す先が多く、点数が消えるため（X の投稿欄にリンクしか入らないとユーザーから指摘）。
+  さらに「コピーだけでは投稿できない」と再度の指摘があり、X の投稿画面を直接開く形にした
+  - X は `https://x.com/intent/post?text=...&url=...`。新しいタブが開けなかったときはコピーに落とす
+  - 文面は `shareText()`。検証は `?win=42&sec=52&sharetest`（文面と組み立てた URL を出す）
 - **Worker は上位 100 位に入らない記録では KV に書き込まない**。無料枠の書き込みは 1 日 1,000 回までで、
   大人数が遊ぶとここが先に詰まる。低い点を 200 回送っても書き込みが増えないことを手元で確認済み
 - 規模の目安: 初回読み込み 26MB。GitHub Pages の月 100GB なら**まっさらな読み込み 月およそ 4,100 回**。
