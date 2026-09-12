@@ -335,6 +335,13 @@ const CSS = `
 }
 
 /* 全画面ボタン。触れる端末でだけ出す（パソコンでは不要） */
+/* 試遊版の印。本番と間違えないように出しっぱなしにする */
+#previewTag { position: absolute; left: 50%; transform: translateX(-50%); top: max(6px, env(safe-area-inset-top));
+  z-index: 6; display: none; pointer-events: none; padding: 3px 12px; border-radius: 12px;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.14em; color: #1a0a00;
+  background: linear-gradient(90deg, #ffd86a, #ffb347); box-shadow: 0 2px 10px rgba(0,0,0,0.5); }
+#previewTag.show { display: block; }
+
 #fs { z-index: 5; position: absolute; right: calc(max(14px, env(safe-area-inset-right)) + 46px);
   top: max(12px, env(safe-area-inset-top)); pointer-events: auto; display: none;
   width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.4);
@@ -421,6 +428,7 @@ export class UI {
       <div id="help">左半分ドラッグで移動 ／ PC: WASD 移動・J 打(連打)・K 回避・L 受け流し・I 射撃・U 必殺・Q 交代</div>
       <button id="music" title="BGM">♪</button>
       <button id="fs" title="全画面">⛶</button>
+      <div id="previewTag">試遊版</div>
       <div id="fps"></div>
       <div id="flash"></div>
       <div class="overlay" id="title">
@@ -520,6 +528,7 @@ export class UI {
     }
     this.startBtn = q('#startbtn');
     this.startBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onStart(this.selected); });
+    this.previewTag = q('#previewTag');
     this.fsBtn = q('#fs');
     this.fsBtn.addEventListener('click', (e) => { e.stopPropagation(); this.onFullscreen(); });
     this.musicBtn = q('#music');
@@ -661,6 +670,10 @@ export class UI {
   setResultNote(text: string) {
     this.resRankBox.innerHTML = `<div class="rank-lose">${esc(text)}</div>`;
   }
+
+  private previewTag!: HTMLElement;
+  /** 試遊版の印を出す */
+  setPreviewTag(v: boolean) { this.previewTag?.classList.toggle('show', v); }
 
   private fsBtn!: HTMLElement;
   /** 全画面ボタンが押された */

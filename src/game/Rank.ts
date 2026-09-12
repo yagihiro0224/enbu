@@ -61,7 +61,14 @@ function isDebugRun() {
   const q = new URLSearchParams(location.search);
   const forged = ['win', 'lose', 'bot', 'hp', 'lowhp', 't', 'rankdemo', 'sharetest'];
   if (forged.some((k) => q.has(k))) return true;
+  // 試遊版（/preview/ 配下）も本番のランキングには載せない
+  if (isPreview()) return true;
   return /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+}
+
+/** 試遊版かどうか。置き場所が /preview/ の下なら試遊版 */
+export function isPreview() {
+  return location.pathname.includes('/preview/');
 }
 
 /** サーバーの URL。?rank=<url> で差し替えられる（検証用） */

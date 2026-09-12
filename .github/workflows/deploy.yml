@@ -1,8 +1,12 @@
 name: Deploy to GitHub Pages
 
+# main を本番、preview を試遊版として同じサイトに載せる。
+#   本番    https://hiro0224world.github.io/enbu/
+#   試遊版  https://hiro0224world.github.io/enbu/preview/
+# どちらのブランチへ push しても、両方を作り直して 1 つのサイトとして公開する。
 on:
   push:
-    branches: [main]
+    branches: [main, preview]
   workflow_dispatch:
 
 permissions:
@@ -18,13 +22,46 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # ---- 本番（main） ----
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
+
+      # ---- 試遊版（preview）。ブランチが無ければ飛ばす ----
+      - name: preview ブランチがあるか調べる
+        id: has_preview
+        run: |
+          if git ls-remote --exit-code --heads origin preview >/dev/null 2>&1; then
+            echo "found=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=no" >> "$GITHUB_OUTPUT"
+            echo "preview ブランチが無いので試遊版は作らない"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.has_preview.outputs.found == 'yes'
+        with:
+          ref: preview
+          path: _preview
+
+      - name: 試遊版を作る
+        if: steps.has_preview.outputs.found == 'yes'
+        working-directory: _preview
+        env:
+          # 置き場所が 1 階層深くなるので、参照の起点を変える
+          BASE_PATH: /enbu/preview/
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/preview
+          cp -r dist/* ../dist/preview/
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

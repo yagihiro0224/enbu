@@ -597,3 +597,19 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
   箱側は `margin: auto` で真ん中に置く。これなら収まるときは中央、あふれるときは上から読める
 - 併せて `max-height: 560px` では行の高さと見出しを詰めた
 - 検証: ヘッドレスの `--window-size=860,400` で `?rankdemo` を開き、1 位が見えることを確認する
+
+## 試遊版（preview）の仕組み（2026-09-13）
+
+- **本番に上げる前にユーザーが確かめるための入口**。ユーザー要望
+  - 本番 `https://hiro0224world.github.io/enbu/` ← `main` ブランチ
+  - 試遊版 `https://hiro0224world.github.io/enbu/preview/` ← `preview` ブランチ
+- 仕組み: `.github/workflows/deploy.yml` が **main と preview の両方を作り、1 つのサイトにまとめて公開する**。
+  どちらへ push しても両方作り直す。`preview` ブランチが無ければ試遊版は作らない
+- 試遊版のビルドは `BASE_PATH=/enbu/preview/`。`vite.config.ts` が `process.env.BASE_PATH` を見る
+- **試遊版は本番のランキングに書き込まない**（`Rank.ts` の `isPreview()` が `/preview/` を見て `isDebugRun()` を真にする）。
+  点数も順位も画面では出るが、登録はされない
+- 画面上部に金色の「試遊版」の印を出す（`#previewTag`）。本番と間違えないため
+- 作業の流れ: 直したいものは `preview` ブランチへ push → ユーザーが試遊版で確認 →
+  よければ `git checkout main && git merge preview && git push` で本番へ
+- **注意**: 試遊版もモデルなどの大きいファイルを丸ごと持つので、サイト全体の容量は倍になる（46MB → 92MB）。
+  上限 1GB には遠いが、覚えておくこと

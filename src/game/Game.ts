@@ -14,7 +14,7 @@ import type { Rig } from './Rig';
 import { CHARS, type CharId } from './UI';
 import { STYLES } from './Style';
 import { computeScore, type ScoreResult } from './Score';
-import { Ranking, cleanName, type Entry } from './Rank';
+import { Ranking, cleanName, isPreview, type Entry } from './Rank';
 import { Items } from './Items';
 import { Music } from './Music';
 import { Bgm, findBgmFiles, trimRange } from './Bgm';
@@ -169,6 +169,7 @@ export class Game {
     // 全画面ボタン。触れる端末だけに出す
     this.ui.onFullscreen = () => this.toggleFullscreen();
     this.ui.setFullscreenButton(this.isTouchDevice);
+    this.ui.setPreviewTag(isPreview());
     document.addEventListener('fullscreenchange', () => this.ui.setFullscreenState(!!document.fullscreenElement));
     // 名前とランキング
     this.ui.setName(this.ranking.name);
