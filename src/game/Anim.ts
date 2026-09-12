@@ -341,41 +341,48 @@ export function poseCast(t: number, intensity = 1): Pose {
 
 /** ボスの突進 */
 /**
- * 相棒を前に抱えて走る姿勢（ちさと）。
- * 腕は前へ伸ばし、上体を前に倒して踏み込む
+ * 相棒を前に抱えて跳ぶ姿勢（ちさと）。
+ * 溜め（fly 0）では踏ん張り、跳んだあと（fly 1）は脚を後ろへ流す
  */
-export function poseCarry(t: number): Pose {
-  const bob = Math.sin(t * 16) * 0.05;
-  const stride = Math.sin(t * 16);
+export function poseCarry(t: number, fly = 0): Pose {
+  const bob = Math.sin(t * 16) * 0.04;
+  const k = clamp(fly, 0, 1);
   return {
     ...arms(
-      { L: [[0.35, 0.12, 0.92], [0.12, 0.18, 0.98]], R: [[-0.35, 0.12, 0.92], [-0.12, 0.18, 0.98]] },
-      [0.24, 0, 0]
+      { L: [[0.34, 0.14, 0.92], [0.12, 0.2, 0.97]], R: [[-0.34, 0.14, 0.92], [-0.12, 0.2, 0.97]] },
+      [0.24 + 0.1 * k, 0, 0]
     ),
     hipsY: -0.06 + bob,
-    spine: [0.24, 0, 0],
-    head: [-0.2, 0, 0],
-    upperLegL: [-0.75 - stride * 0.25, 0, -0.06],
-    lowerLegL: [0.95, 0, 0],
-    upperLegR: [0.55 + stride * 0.25, 0, 0.06],
-    lowerLegR: [0.75, 0, 0],
+    spine: [0.24 + 0.1 * k, 0, 0],
+    head: [-0.2 - 0.08 * k, 0, 0],
+    // 溜めは踏み込み、跳んだら両脚とも後ろへ伸ばす
+    upperLegL: [-0.8 + 1.45 * k, 0, -0.06],
+    lowerLegL: [0.95 - 0.35 * k, 0, 0],
+    upperLegR: [0.5 + 0.65 * k, 0, 0.06],
+    lowerLegR: [0.75 - 0.25 * k, 0, 0],
   };
 }
 
 /**
  * 抱えられて頭から突っ込む姿勢（まひろ）。
- * 体は親側で横倒しにするので、ここでは腕を後ろへ流して頭を突き出すだけ
+ * 体は親側で横倒しにするので、ここでは腕と脚を流して頭を突き出す。
+ * **右腕は拳を前へ突き出す**（参考画像の形）
  */
-export function poseRam(t: number): Pose {
-  const q = Math.sin(t * 22) * 0.05;
+export function poseRam(t: number, fly = 0): Pose {
+  const q = Math.sin(t * 22) * 0.04;
+  const k = clamp(fly, 0, 1);
   return {
-    ...arms({ L: [[0.3, -0.2, -0.9], [0.12, -0.12, -0.98]], R: [[-0.3, -0.2, -0.9], [-0.12, -0.12, -0.98]] }),
-    spine: [-0.14 + q, 0, 0],
-    head: [-0.32, 0, 0],
-    upperLegL: [0.16, 0, -0.05],
-    lowerLegL: [0.12 + q, 0, 0],
-    upperLegR: [0.16, 0, 0.05],
-    lowerLegR: [0.12 - q, 0, 0],
+    ...arms({
+      // 右は前へ突き出し、左は体に沿わせて後ろへ
+      R: [[-0.16, 0.1, 0.96], [-0.08, 0.06, 0.99]],
+      L: [[0.34, -0.26, -0.9], [0.14, -0.16, -0.97]],
+    }),
+    spine: [-0.12 - 0.08 * k + q, 0, 0],
+    head: [-0.34, 0, 0],
+    upperLegL: [0.18 + 0.12 * k, 0, -0.05],
+    lowerLegL: [0.14 + q, 0, 0],
+    upperLegR: [0.1 - 0.1 * k, 0, 0.05],
+    lowerLegR: [0.3 - q, 0, 0],
   };
 }
 

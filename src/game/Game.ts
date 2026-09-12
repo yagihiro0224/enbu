@@ -208,6 +208,7 @@ export class Game {
       this.player.group.visible = true;
     }
     this.ui.setReady(true);
+    this.tryStartMusicNow();
     if (model) {
       try {
         const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
@@ -678,11 +679,17 @@ export class Game {
     if (t > SUP_CUTIN) k = Math.min(1, (t - SUP_CUTIN) / SUP_DASH);
     const ease = k * k * (3 - 2 * k);
     sp.group.position.lerpVectors(sp.from, sp.to, ease);
+    // 溜めで沈み、踏み切って宙へ。前を上げた斜めの姿勢で飛ぶ
+    const crouch = t < SUP_CUTIN ? -0.12 * Math.min(1, t / 0.45) : 0;
+    const lift = k > 0 ? Math.sin(Math.min(1, k * 1.15) * Math.PI * 0.78) * 0.62 : 0;
+    sp.group.position.y = crouch + lift;
     sp.group.rotation.y = sp.yaw;
+    sp.group.rotation.x = -0.3 * Math.min(1, k * 2.2);
 
     // 姿勢
-    sp.carrierAnim.apply(poseCarry(t * 2.2), 14, dt);
-    sp.rammerAnim.apply(poseRam(t * 2.2), 14, dt);
+    const fly = Math.min(1, k * 3);
+    sp.carrierAnim.apply(poseCarry(t * 2.2, fly), 14, dt);
+    sp.rammerAnim.apply(poseRam(t * 2.2, fly), 14, dt);
     sp.carrier.update(dt);
     sp.rammer.update(dt);
 
@@ -760,6 +767,34 @@ export class Game {
 
 
 
+
+  /**
+   * キャラ選択の画面が出た時点で BGM を鳴らしにいく。
+   * **ブラウザは一度も触られていないページの音を止める**ので、
+   * 開けなければ最初の操作（どこを触っても可）で開き直す
+   */
+  private tryStartMusicNow() {
+    this.ensureMusic();
+    if (this.state === 'title') this.setMusicLv(0);
+    if (this.sfx.state === 'running') {
+      this.ui.setAudioHint(false);
+      return;
+    }
+    // まだ開けない。最初の操作を待つ
+    this.ui.setAudioHint(true);
+    const kick = () => {
+      this.ensureMusic();
+      if (this.state === 'title') this.setMusicLv(0);
+      // resume は非同期なので、少し置いてから案内を消す
+      setTimeout(() => this.ui.setAudioHint(this.sfx.state !== 'running'), 400);
+      for (const ev of ['pointerdown', 'keydown', 'touchstart'] as const) {
+        window.removeEventListener(ev, kick);
+      }
+    };
+    for (const ev of ['pointerdown', 'keydown', 'touchstart'] as const) {
+      window.addEventListener(ev, kick, { passive: true });
+    }
+  }
 
   /** BGM の濃さを指定する。まだ音が開けていなければ覚えておく */
   private setMusicLv(v: 0 | 1 | 2) {
@@ -880,6 +915,8 @@ export class Game {
 
   private finish(win: boolean) {
     if (this.state !== 'play') return;
+    // 必殺技で決着がつくことがある。**体を元の入れ物へ戻してからでないとリザルトで消える**
+    if (this.sup) this.endSuper();
     this.recordNote = { kind: 'none', gain: 0 };
     this.state = 'over';
     this.overWin = win;
@@ -1095,12 +1132,14 @@ export class Game {
       const sp = this.sup;
       const right = this.tmp.set(sp.dir.z, 0, -sp.dir.x);
       // 二人ぶんの真ん中。抱えられている側が前に出ているぶん、注視点を前へずらす
-      const mid = new THREE.Vector3(sp.group.position.x, 1.2, sp.group.position.z).addScaledVector(sp.dir, 0.9);
+      // 跳ぶと高さが変わるので、注視点も一緒に上げる
+      const mid = new THREE.Vector3(sp.group.position.x, 1.15 + sp.group.position.y * 0.9, sp.group.position.z)
+        .addScaledVector(sp.dir, 1.0);
       const close = sp.t < SUP_CUTIN;
       desired = mid.clone()
-        .addScaledVector(right, close ? 4.6 : 5.4)
-        .addScaledVector(sp.dir, close ? 0.2 : -1.4);
-      desired.y = close ? 1.9 : 2.5;
+        .addScaledVector(right, close ? 4.6 : 6.0)
+        .addScaledVector(sp.dir, close ? 0.2 : -1.6);
+      desired.y = close ? 1.9 : 2.6 + sp.group.position.y * 0.5;
       look = mid.clone();
     } else if (this.state === 'over') {
       // 二人を正面から。**縦画面ではスコア面板が下半分を覆う**ので、

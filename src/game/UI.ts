@@ -265,6 +265,10 @@ const CSS = `
 #rankbtn { pointer-events: auto; font-size: 13px; font-weight: 700; padding: 8px 18px; border-radius: 20px;
   border: 2px solid rgba(200,160,255,0.7); background: rgba(30,10,40,0.8); color: #e8c8ff; cursor: pointer; font-family: inherit; }
 #rankbtn:active { transform: scale(0.95); }
+/* 音がまだ出せないときの案内。触れば鳴る */
+#audiohint { display: none; margin-top: 10px; font-size: 11px; letter-spacing: 0.08em; color: rgba(255,230,200,0.75);
+  animation: blink 1.8s infinite; }
+#audiohint.on { display: block; }
 
 /* ランキングの表 */
 .ranklist { width: 100%; display: flex; flex-direction: column; gap: 3px; }
@@ -384,6 +388,7 @@ export class UI {
           <button id="rankbtn" type="button">ランキング</button>
         </div>
         <button id="startbtn" class="hidden">ゲーム開始</button>
+        <div id="audiohint">画面に触れると音が鳴ります</div>
         <div class="hint">キャラクターを選んで「ゲーム開始」 ／ ゲーム中は「交代」でいつでも入れ替え</div>
       </div>
       <button id="swap" class="hidden">
@@ -484,6 +489,7 @@ export class UI {
     q('#totitle').addEventListener('click', () => this.onToTitle());
 
     // 名前の入力。打ち替えるたびに呼び出し側へ渡す
+    this.audioHint = q('#audiohint');
     this.nameRow = q('#nameRow');
     this.nameInput = q('#pname') as HTMLInputElement;
     this.nameInput.addEventListener('input', () => this.onName(this.nameInput.value));
@@ -518,6 +524,12 @@ export class UI {
   onSelect: (c: CharId) => void = () => {};
 
   private nameRow!: HTMLElement;
+  private audioHint!: HTMLElement;
+
+  /** 音がまだ出せないことの案内 */
+  setAudioHint(v: boolean) {
+    this.audioHint?.classList.toggle('on', v);
+  }
   private nameInput!: HTMLInputElement;
   private rankBoard!: HTMLElement;
   private rankList!: HTMLElement;
