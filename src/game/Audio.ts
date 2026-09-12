@@ -416,21 +416,23 @@ export class Sfx {
     const name = this.bossShotFlip ? 'bossShoot1' : 'bossShoot2';
     // 弾幕では発射が続くので、間隔を空けて重ならないようにする
     if (this.playSample(name, { gain: 0.4, gap: 0.14, cut: 0.7 })) return;
+    // 音源がまだ読めていないときの代役。
+    // **下降する正弦波は「ぽん」と跳ねて聞こえる**ので使わず、息を吐くような雑音にする
     if (!this.ctx) return;
     const t = this.ctx.currentTime;
-    const o = this.osc('sine', 200, t, 0.15);
-    o.frequency.exponentialRampToValueAtTime(68, t + 0.11);
-    const g = this.envNode(o, t, 0.15, 0.2, 0.002);
-    this.send(g, 0.16);
-    const n = this.noiseSrc(t, 0.06);
-    const lp = this.ctx.createBiquadFilter();
-    lp.type = 'lowpass';
-    lp.frequency.setValueAtTime(1100, t);
-    lp.frequency.exponentialRampToValueAtTime(280, t + 0.06);
-    n.connect(lp);
-    this.envNode(lp, t, 0.06, 0.16, 0.002);
+    const n = this.noiseSrc(t, 0.12);
+    const bp = this.ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 0.7;
+    bp.frequency.setValueAtTime(900, t);
+    bp.frequency.exponentialRampToValueAtTime(300, t + 0.12);
+    n.connect(bp);
+    const g = this.envNode(bp, t, 0.12, 0.3, 0.004);
+    this.send(g, 0.14);
   }
+  /** 敵がためる音。発射と同じ音源を低く遅くして、ひと続きに聞こえるようにする */
   bossCharge() {
+    if (this.playSample('bossShoot1', { gain: 0.3, rate: 0.62, cut: 1.0, gap: 0.4 })) return;
     this.tone(200, 0.6, { type: 'sawtooth', gain: 0.15, end: 900, attack: 0.3 });
   }
   teleport() {
