@@ -515,3 +515,12 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 ` で改行が効く。画面下 18vh に置いて二人に被らないようにした
 - ボスは `Boss.freeze(true, ctx)` で停止。パターン進行と移動を止め、溜めていた弾も消す
 - 検証は `?super&spf=コマ数`（ゲージを満タンにして即発動。着弾は 100 コマ前後）
+
+## スコア画面から戻る（2026-09-12）
+
+- リザルトのボタンは「もう一度」と「タイトルへ」の 2 つ。`UI.onToTitle` → `Game.backToTitle()`
+- 戦闘前の状態に戻す処理は `resetForNewGame()` に集約し、やり直しとタイトル戻りで共有する。
+  必殺技の最中に戻されても壊れないよう、先に `endSuper()` を呼ぶ
+- タイトルへ戻すときは `ui.showTitle()`（`?t=` で `display:none` にしていた場合も戻す）、
+  操作 UI を隠し、BGM の濃さを 0 に、背景のキャラを選択中のものへ差し替える
+- 検証は `?t=1&win=42&sec=52&totitle`

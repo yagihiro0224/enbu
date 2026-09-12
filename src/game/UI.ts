@@ -342,6 +342,8 @@ export class UI {
   private vigV = 0;
   onStart: (c: CharId) => void = () => {};
   onRetry: () => void = () => {};
+  /** リザルトの「タイトルへ」 */
+  onToTitle: () => void = () => {};
 
   constructor(parent: HTMLElement) {
     const style = document.createElement('style');
@@ -407,6 +409,7 @@ export class UI {
           <div id="res-rankbox"></div>
           <div class="btnrow">
             <button id="retry">もう一度</button>
+            <button id="totitle">タイトルへ</button>
           </div>
         </div>
       </div>`;
@@ -474,6 +477,7 @@ export class UI {
     this.select('mahiro');
     this.swapBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); this.onSwap(); });
     q('#retry').addEventListener('click', () => this.onRetry());
+    q('#totitle').addEventListener('click', () => this.onToTitle());
 
     // 名前の入力。打ち替えるたびに呼び出し側へ渡す
     this.nameRow = q('#nameRow');
@@ -668,6 +672,11 @@ export class UI {
   }
 
   hideTitle() { this.title.classList.add('hidden'); }
+  /** タイトルを出し直す。?t= で display:none にしていた場合も戻す */
+  showTitle() {
+    this.title.style.display = '';
+    this.title.classList.remove('hidden');
+  }
   /** 動作確認用: フェードなしで即座に消す */
   hideTitleNow() { this.title.style.display = 'none'; }
   showResult(win: boolean, score: ScoreResult, char: CharId, seconds: number, maxCombo: number) {

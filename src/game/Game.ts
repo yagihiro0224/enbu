@@ -160,6 +160,7 @@ export class Game {
     this.ui.onStart = (c) => this.start(c);
     this.ui.onSelect = (c) => { if (this.state === 'title') this.setChar(c); };
     this.ui.onRetry = () => this.restart();
+    this.ui.onToTitle = () => this.backToTitle();
     this.ui.onSwap = () => this.swap();
     // タイトルでキャラを選んだ時点で音を開けるようにして、静かな曲を流し始める
     // ♪ ボタンからも呼ばれるので、戦闘中に濃さを戻してしまわないよう場面を見る
@@ -327,6 +328,11 @@ export class Game {
         if (q.has('t')) this.ui.hideTitleNow();
         const ff = Number(q.get('t') ?? 0);
         for (let i = 0; i < ff * 60; i++) this.step(1 / 60);
+        // ?totitle で、リザルトからタイトルへ戻した状態を確かめる
+        if (q.has('totitle')) {
+          this.backToTitle();
+          for (let i = 0; i < 40; i++) this.step(1 / 60);
+        }
         // ?super で必殺技を撃たせ、?spf=コマ数 だけ進めて止める
         if (q.has('super')) {
           this.player.superGauge = 1;
@@ -814,10 +820,28 @@ export class Game {
     this.beginPlay();
   }
 
-  private restart() {
+  /** スコア画面からタイトルへ戻す */
+  private backToTitle() {
+    this.resetForNewGame();
+    this.state = 'title';
+    this.playTime = 0;
+    this.input.enabled = false;
+    this.input.setVisible(false);
+    this.ui.setPlaying(false);
+    this.ui.setSwapVisible(false);
+    this.ui.showTitle();
+    this.setMusicLv(0);
+    // タイトルの背景は選んでいるキャラを立たせておく
+    this.setChar(this.ui.selected);
+  }
+
+  /** 戦闘を始める前の状態に戻す。やり直しとタイトル戻りで共通 */
+  private resetForNewGame() {
+    if (this.sup) this.endSuper();
     this.sfx.stopVoiceLoop(); // スコア画面を離れるので声を止める
     this.clearVictory();
     this.ui.hideResult();
+    this.ui.setCutin('');
     this.bullets.clear();
     this.particles.clear();
     this.fx.clear();
@@ -829,8 +853,14 @@ export class Game {
     this.ui.setBossHp(1);
     this.ui.setPlayerHp(1);
     this.ui.setCombo(0);
+    this.ui.setSuper(0);
+    this.input.setSuperReady(false);
     this.slowT = 0;
     this.slowScale = 1;
+  }
+
+  private restart() {
+    this.resetForNewGame();
     this.sfx.start();
     this.beginPlay();
   }
