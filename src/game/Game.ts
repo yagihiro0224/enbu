@@ -817,6 +817,8 @@ export class Game {
     // まだ開けない。最初の操作を待つ
     this.ui.setAudioHint(true);
     const kick = () => {
+      // 最初に触れた時点で全画面にする（タイトルからずっと全画面にしたいため）
+      this.enterFullscreenOnPhone();
       this.ensureMusic();
       if (this.state === 'title') this.setMusicLv(0);
       // resume は非同期なので、少し置いてから案内を消す
@@ -934,7 +936,25 @@ export class Game {
     this.beginPlay();
   }
 
+  /**
+   * スマホのときだけ全画面にする（2026-09-12 ユーザー指示）。
+   * **操作の中でしか要求できない**ので、開始ボタンの流れから呼ぶこと。
+   * iPhone の Safari は全画面に対応していないので何も起きない（ホーム画面に追加すれば manifest 側で全画面になる）
+   */
+  private enterFullscreenOnPhone() {
+    if (!matchMedia('(pointer: coarse)').matches) return;
+    if (document.fullscreenElement) return;
+    const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> };
+    try {
+      const p = el.requestFullscreen?.() ?? el.webkitRequestFullscreen?.();
+      void p?.catch(() => { /* 断られても遊べるので黙って続ける */ });
+    } catch {
+      /* 対応していない端末では何もしない */
+    }
+  }
+
   private beginPlay() {
+    this.enterFullscreenOnPhone();
     this.state = 'play';
     this.playTime = 0;
     this.input.reset();

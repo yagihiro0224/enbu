@@ -179,7 +179,13 @@ negative: background, scenery, multiple views, extra limbs, weapon raised, dynam
 - 動作確認: `?t=1&win=42&sec=52&mp=3&bp=7`（勝ちリザルト）、`&lose` で負け、`&dmg` で被弾あり、`&char=chisato` で勝者を変更。
   注意: この debug 経路は同期ループのため、ヘッドレスだと overlay のフェード途中で撮れて全体が半透明に写ることがある（実機では問題ない）
 
-- **開始時に requestFullscreen は呼ばない**（2026-09-11 ユーザー指示「急に全画面になるのはやめたい」）。画面の向きのロックも同時に廃止した。
+- **スマホ（`pointer: coarse`）のときだけ全画面にする**（2026-09-12 ユーザー指示「常に全画面モードにしたい」）。
+  2026-09-11 には「急に全画面になるのはやめたい」と言われて外していたので、**方針が反転している**。
+  パソコンでは全画面にしない
+  - 呼ぶのは `enterFullscreenOnPhone()`。**操作の中でしか要求できない**ので、最初に画面へ触れたとき（音を開ける処理と同じ場所）と
+    `beginPlay()` の 2 か所から呼ぶ。断られても黙って続ける
+  - **iPhone の Safari は全画面に対応していない**ので何も起きない。ホーム画面に追加して起動すれば manifest の `display: fullscreen` が効く
+  - 画面の向きのロックは引き続き行わない。
   なお `public/manifest.webmanifest` の `display: fullscreen` はホーム画面に追加して起動したときだけ効くもので、プレイ中の切り替えとは別物。
 
 - 立ち絵 `public/images/*_cap.png` はユーザー提供の「バストアップ｜全身（銃）」2 コマ並び（515x390）。
